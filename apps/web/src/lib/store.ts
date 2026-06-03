@@ -25,6 +25,16 @@ import { MARKETPLACE_COMMISSION_PERCENT } from '@culina/shared';
 import { computeCogs, feeBreakdown } from '@culina/shared';
 import * as seed from './mockData';
 import { genId } from './utils';
+import { useApi } from './config';
+import { persist, removeRemote } from './dataApi';
+
+/** Write-through to Cloudflare D1 when running in LIVE mode (no-op in demo). */
+const wt = (table: string, row: unknown) => {
+  if (useApi) persist(table, row as Record<string, unknown>);
+};
+const wtDel = (table: string, id: string) => {
+  if (useApi) removeRemote(table, id);
+};
 
 /**
  * In-memory data store for DEMO MODE. State is seeded from mockData and mutated
@@ -64,6 +74,19 @@ const state = {
 
 export const IDS = seed.IDS;
 
+/**
+ * Replace in-memory collections with data fetched from D1 (LIVE mode). Only
+ * the keys present in the payload are replaced, so reference data and anything
+ * not returned for the current user is left intact.
+ */
+export function hydrate(payload: Record<string, unknown[]>) {
+  for (const [key, rows] of Object.entries(payload)) {
+    if (key in state && Array.isArray(rows)) {
+      (state as Record<string, unknown[]>)[key] = rows as unknown[];
+    }
+  }
+}
+
 // ─── Profiles ─────────────────────────────────────────────────────────────
 export const getProfile = (id: string) => state.profiles.find((p) => p.id === id) ?? null;
 
@@ -74,7 +97,7 @@ export const getKitchenByOperator = (operatorId: string) =>
   state.kitchens.find((k) => k.operator_id === operatorId) ?? null;
 export const updateKitchen = (id: string, patch: Partial<typeof state.kitchens[number]>) => {
   const k = state.kitchens.find((x) => x.id === id);
-  if (k) Object.assign(k, patch, { updated_at: new Date().toISOString() });
+  if (k) { Object.assign(k, patch, { updated_at: new Date().toISOString() }); wt('kitchens', k); }
   return k ?? null;
 };
 
@@ -86,6 +109,7 @@ export const upsertSpace = (sp: Partial<KitchenSpace> & { kitchen_id: string }):
     const existing = state.spaces.find((s) => s.id === sp.id);
     if (existing) {
       Object.assign(existing, sp);
+      wt('kitchen_spaces', existing);
       return existing;
     }
   }
@@ -104,10 +128,12 @@ export const upsertSpace = (sp: Partial<KitchenSpace> & { kitchen_id: string }):
     ...sp,
   } as KitchenSpace;
   state.spaces.push(created);
+  wt('kitchen_spaces', created);
   return created;
 };
 export const deleteSpace = (id: string) => {
   state.spaces = state.spaces.filter((s) => s.id !== id);
+  wtDel('kitchen_spaces', id);
 };
 
 // ─── Equipment ────────────────────────────────────────────────────────────
@@ -117,6 +143,7 @@ export const upsertEquipment = (eq: Partial<KitchenEquipment> & { kitchen_id: st
     const existing = state.equipment.find((e) => e.id === eq.id);
     if (existing) {
       Object.assign(existing, eq);
+      wt('kitchen_equipment', existing);
       return existing;
     }
   }
@@ -129,10 +156,12 @@ export const upsertEquipment = (eq: Partial<KitchenEquipment> & { kitchen_id: st
     ...eq,
   } as KitchenEquipment;
   state.equipment.push(created);
+  wt('kitchen_equipment', created);
   return created;
 };
 export const deleteEquipment = (id: string) => {
   state.equipment = state.equipment.filter((e) => e.id !== id);
+  wtDel('kitchen_equipment', id);
 };
 
 // ─── Memberships ──────────────────────────────────────────────────────────
@@ -142,7 +171,7 @@ export const getMembershipForTenant = (tenantId: string) =>
   state.memberships.find((m) => m.tenant_id === tenantId) ?? null;
 export const updateMembership = (id: string, patch: Partial<Membership>) => {
   const m = state.memberships.find((x) => x.id === id);
-  if (m) Object.assign(m, patch, { updated_at: new Date().toISOString() });
+  if (m) { Object.assign(m, patch, { updated_at: new Date().toISOString() }); wt('memberships', m); }
   return m ?? null;
 };
 
@@ -153,7 +182,7 @@ export const getTenantProfileBySlug = (slug: string) =>
   state.tenantProfiles.find((t) => t.business_slug === slug) ?? null;
 export const updateTenantProfile = (tenantId: string, patch: Partial<TenantProfile>) => {
   const t = state.tenantProfiles.find((x) => x.tenant_id === tenantId);
-  if (t) Object.assign(t, patch, { updated_at: new Date().toISOString() });
+  if (t) { Object.assign(t, patch, { updated_at: new Date().toISOString() }); wt('tenant_profiles', t); }
   return t ?? null;
 };
 
@@ -164,7 +193,7 @@ export const listComplianceForTenant = (tenantId: string) =>
   state.complianceDocuments.filter((d) => d.tenant_id === tenantId);
 export const updateComplianceDoc = (id: string, patch: Partial<ComplianceDocument>) => {
   const d = state.complianceDocuments.find((x) => x.id === id);
-  if (d) Object.assign(d, patch);
+  if (d) { Object.assign(d, patch); wt('compliance_documents', d); }
   return d ?? null;
 };
 export const addComplianceDoc = (doc: Partial<ComplianceDocument> & { tenant_id: string; kitchen_id: string; doc_type: ComplianceDocument['doc_type'] }) => {
@@ -181,6 +210,7 @@ export const addComplianceDoc = (doc: Partial<ComplianceDocument> & { tenant_id:
     ...doc,
   } as ComplianceDocument;
   state.complianceDocuments.push(created);
+  wt('compliance_documents', created);
   return created;
 };
 
@@ -229,11 +259,12 @@ export const createBooking = (input: {
     updated_at: new Date().toISOString(),
   };
   state.bookings.push(booking);
+  wt('bookings', booking);
   return booking;
 };
 export const updateBooking = (id: string, patch: Partial<Booking>) => {
   const b = state.bookings.find((x) => x.id === id);
-  if (b) Object.assign(b, patch, { updated_at: new Date().toISOString() });
+  if (b) { Object.assign(b, patch, { updated_at: new Date().toISOString() }); wt('bookings', b); }
   return b ?? null;
 };
 
@@ -241,7 +272,7 @@ export const updateBooking = (id: string, patch: Partial<Booking>) => {
 export const listLeads = (kitchenId: string) => state.leads.filter((l) => l.kitchen_id === kitchenId);
 export const updateLead = (id: string, patch: Partial<Lead>) => {
   const l = state.leads.find((x) => x.id === id);
-  if (l) Object.assign(l, patch, { updated_at: new Date().toISOString() });
+  if (l) { Object.assign(l, patch, { updated_at: new Date().toISOString() }); wt('leads', l); }
   return l ?? null;
 };
 export const createLead = (input: Partial<Lead> & { kitchen_id: string; full_name: string; email: string }) => {
@@ -262,6 +293,7 @@ export const createLead = (input: Partial<Lead> & { kitchen_id: string; full_nam
     ...input,
   } as Lead;
   state.leads.unshift(created);
+  wt('leads', created);
   return created;
 };
 
@@ -272,13 +304,14 @@ export const listInvoicesForTenant = (tenantId: string) =>
 export const getInvoice = (id: string) => state.invoices.find((i) => i.id === id) ?? null;
 export const updateInvoice = (id: string, patch: Partial<Invoice>) => {
   const i = state.invoices.find((x) => x.id === id);
-  if (i) Object.assign(i, patch);
+  if (i) { Object.assign(i, patch); wt('invoices', i); }
   return i ?? null;
 };
 export const createInvoice = (input: Omit<Invoice, 'id' | 'invoice_number' | 'created_at'>) => {
   const num = `INV-2026-${String(state.invoices.length + 1).padStart(4, '0')}`;
   const created: Invoice = { id: genId('inv'), invoice_number: num, created_at: new Date().toISOString(), ...input };
   state.invoices.push(created);
+  wt('invoices', created);
   return created;
 };
 
@@ -303,6 +336,7 @@ export const upsertRecipe = (recipe: Partial<Recipe> & { tenant_id: string; name
     const existing = state.recipes.find((r) => r.id === recipe.id);
     if (existing) {
       Object.assign(existing, recipe, computed, { updated_at: new Date().toISOString() });
+      wt('recipes', existing);
       return existing;
     }
   }
@@ -328,10 +362,12 @@ export const upsertRecipe = (recipe: Partial<Recipe> & { tenant_id: string; name
     ...computed,
   } as Recipe;
   state.recipes.push(created);
+  wt('recipes', created);
   return created;
 };
 export const deleteRecipe = (id: string) => {
   state.recipes = state.recipes.filter((r) => r.id !== id);
+  wtDel('recipes', id);
 };
 
 // ─── Products ─────────────────────────────────────────────────────────────
@@ -343,6 +379,7 @@ export const upsertProduct = (product: Partial<Product> & { tenant_id: string; n
     const existing = state.products.find((p) => p.id === product.id);
     if (existing) {
       Object.assign(existing, product, { updated_at: new Date().toISOString() });
+      wt('products', existing);
       return existing;
     }
   }
@@ -370,10 +407,12 @@ export const upsertProduct = (product: Partial<Product> & { tenant_id: string; n
     ...product,
   } as Product;
   state.products.push(created);
+  wt('products', created);
   return created;
 };
 export const deleteProduct = (id: string) => {
   state.products = state.products.filter((p) => p.id !== id);
+  wtDel('products', id);
 };
 
 // ─── Orders ───────────────────────────────────────────────────────────────
@@ -429,6 +468,7 @@ export const createAnnouncement = (input: { kitchen_id: string; author_id: strin
     ...input,
   };
   state.announcements.unshift(created);
+  wt('announcements', created);
   return created;
 };
 
@@ -441,6 +481,7 @@ export const upsertTenantSite = (site: Partial<TenantSite> & { tenant_id: string
   const existing = state.tenantSites.find((s) => s.tenant_id === site.tenant_id);
   if (existing) {
     Object.assign(existing, site, { updated_at: new Date().toISOString() });
+    wt('tenant_sites', existing);
     return existing;
   }
   const created: TenantSite = {
@@ -467,6 +508,7 @@ export const upsertTenantSite = (site: Partial<TenantSite> & { tenant_id: string
     ...site,
   } as TenantSite;
   state.tenantSites.push(created);
+  wt('tenant_sites', created);
   return created;
 };
 
@@ -475,7 +517,7 @@ export const listNotifications = (userId: string) =>
   state.notifications.filter((n) => n.user_id === userId);
 export const markNotificationRead = (id: string) => {
   const n = state.notifications.find((x) => x.id === id);
-  if (n) n.is_read = true;
+  if (n) { n.is_read = true; wt('notifications', n); }
 };
 
 // ─── Access control (Tier 1) ───────────────────────────────────────────────
@@ -488,7 +530,7 @@ export const listAccessEvents = (kitchenId: string) =>
 export const upsertAccessCredential = (c: Partial<AccessCredential> & { kitchen_id: string; lock_name: string }) => {
   if (c.id) {
     const existing = state.accessCredentials.find((x) => x.id === c.id);
-    if (existing) { Object.assign(existing, c); return existing; }
+    if (existing) { Object.assign(existing, c); wt('access_credentials', existing); return existing; }
   }
   const created: AccessCredential = {
     id: genId('ac'), tenant_id: null, provider: 'SmartLock (Kisi)',
@@ -496,11 +538,12 @@ export const upsertAccessCredential = (c: Partial<AccessCredential> & { kitchen_
     schedule: '24/7', last_used: null, created_at: new Date().toISOString(), ...c,
   } as AccessCredential;
   state.accessCredentials.push(created);
+  wt('access_credentials', created);
   return created;
 };
 export const revokeAccessCredential = (id: string) => {
   const c = state.accessCredentials.find((x) => x.id === id);
-  if (c) c.status = 'revoked';
+  if (c) { c.status = 'revoked'; wt('access_credentials', c); }
 };
 
 // ─── Mentors (Tier 2) ───────────────────────────────────────────────────────
@@ -513,6 +556,7 @@ export const requestMentor = (tenantId: string, mentorId: string, message: strin
     message, created_at: new Date().toISOString(),
   };
   state.mentorRequests.unshift(created);
+  wt('mentor_requests', created);
   return created;
 };
 
@@ -525,6 +569,7 @@ export const addEmailSubscriber = (tenantId: string, email: string, name?: strin
     created_at: new Date().toISOString(),
   };
   state.emailSubscribers.unshift(created);
+  wt('email_subscribers', created);
   return created;
 };
 
@@ -537,11 +582,12 @@ export const createClassified = (c: Partial<Classified> & { kitchen_id: string; 
     status: 'active', created_at: new Date().toISOString(), ...c,
   } as Classified;
   state.classifieds.unshift(created);
+  wt('classifieds', created);
   return created;
 };
 export const closeClassified = (id: string) => {
   const c = state.classifieds.find((x) => x.id === id);
-  if (c) c.status = 'closed';
+  if (c) { c.status = 'closed'; wt('classifieds', c); }
 };
 export const listCommunityPosts = (kitchenId: string) =>
   [...state.communityPosts].filter((p) => p.kitchen_id === kitchenId).reverse();
@@ -550,6 +596,7 @@ export const createCommunityPost = (p: { kitchen_id: string; author_id: string; 
     id: genId('cp'), kind: 'post', created_at: new Date().toISOString(), ...p,
   } as CommunityPost;
   state.communityPosts.push(created);
+  wt('community_posts', created);
   return created;
 };
 
@@ -561,13 +608,14 @@ export const listWhiteLabelConfigs = () => state.whiteLabelConfigs;
 export const upsertWhiteLabelConfig = (c: Partial<WhiteLabelConfig> & { org_name: string; brand_name: string }): WhiteLabelConfig => {
   if (c.id) {
     const existing = state.whiteLabelConfigs.find((x) => x.id === c.id);
-    if (existing) { Object.assign(existing, c); return existing; }
+    if (existing) { Object.assign(existing, c); wt('white_label_configs', existing); return existing; }
   }
   const created: WhiteLabelConfig = {
     id: genId('wl'), primary_color: '#2D4A3E', logo_url: null, custom_domain: null,
     plan: 'pilot', is_active: true, created_at: new Date().toISOString(), ...c,
   } as WhiteLabelConfig;
   state.whiteLabelConfigs.push(created);
+  wt('white_label_configs', created);
   return created;
 };
 
@@ -587,6 +635,8 @@ export const sellClassified = (id: string): MarketplaceTransaction | null => {
     created_at: new Date().toISOString(),
   };
   state.marketplaceTransactions.unshift(tx);
+  wt('classifieds', c);
+  wt('marketplace_transactions', tx);
   return tx;
 };
 

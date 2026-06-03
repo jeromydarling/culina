@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/misc';
 import { useAuth, roleForEmail } from '@/context/AuthContext';
+import { useApi, setLiveMode } from '@/lib/config';
+import { cn } from '@/lib/utils';
 import type { UserRole } from '@culina/shared';
 
 export default function Login() {
@@ -27,8 +29,10 @@ export default function Login() {
     navigate(homeFor(roleForEmail(email)));
   }
 
-  function demo(role: UserRole) {
-    loginAsDemo(role);
+  async function demo(role: UserRole) {
+    setLoading(true);
+    await loginAsDemo(role);
+    setLoading(false);
     navigate(homeFor(role));
   }
 
@@ -54,16 +58,34 @@ export default function Login() {
         </Button>
       </form>
 
-      {isDemo && (
-        <div className="mt-6 rounded-xl border bg-muted/40 p-4">
-          <p className="text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Explore the live demo</p>
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <Button variant="outline" size="sm" onClick={() => demo('operator')} className="flex-col h-auto py-3"><ChefHat className="mb-1 h-4 w-4" />Operator</Button>
-            <Button variant="outline" size="sm" onClick={() => demo('tenant')} className="flex-col h-auto py-3"><Store className="mb-1 h-4 w-4" />Maker</Button>
-            <Button variant="outline" size="sm" onClick={() => demo('admin')} className="flex-col h-auto py-3"><ShieldCheck className="mb-1 h-4 w-4" />Admin</Button>
+      <div className="mt-6 rounded-xl border bg-muted/40 p-4">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">One-click demo</p>
+          {/* Backend mode toggle: flip to real Cloudflare D1 with no redeploy. */}
+          <div className="flex items-center gap-1 rounded-full border bg-card p-0.5 text-xs">
+            <button
+              onClick={() => { setLiveMode(false); window.location.reload(); }}
+              className={cn('rounded-full px-2.5 py-1 font-medium', !useApi ? 'bg-primary text-secondary' : 'text-muted-foreground')}
+            >
+              Demo
+            </button>
+            <button
+              onClick={() => { setLiveMode(true); window.location.reload(); }}
+              className={cn('rounded-full px-2.5 py-1 font-medium', useApi ? 'bg-primary text-secondary' : 'text-muted-foreground')}
+            >
+              Live · D1
+            </button>
           </div>
         </div>
-      )}
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <Button variant="outline" size="sm" onClick={() => demo('operator')} className="flex-col h-auto py-3"><ChefHat className="mb-1 h-4 w-4" />Operator</Button>
+          <Button variant="outline" size="sm" onClick={() => demo('tenant')} className="flex-col h-auto py-3"><Store className="mb-1 h-4 w-4" />Maker</Button>
+          <Button variant="outline" size="sm" onClick={() => demo('admin')} className="flex-col h-auto py-3"><ShieldCheck className="mb-1 h-4 w-4" />Admin</Button>
+        </div>
+        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+          {useApi ? 'Live mode: real accounts + persistence on Cloudflare D1.' : 'Demo mode: instant, no backend needed.'}
+        </p>
+      </div>
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
         New to Culina? <Link to="/auth/signup" className="font-medium text-primary hover:underline">Create an account</Link>

@@ -29,6 +29,7 @@ import type {
   WhiteLabelConfig,
 } from '@culina/shared';
 import { computeCogs, feeBreakdown } from '@culina/shared';
+import { IMG } from './images';
 
 const now = new Date();
 const iso = (d: Date) => d.toISOString();
@@ -290,9 +291,9 @@ export const recipes: Recipe[] = [
 ];
 
 export const products: Product[] = [
-  { id: 'pr_1', tenant_id: IDS.sara, recipe_id: 'rc_1', name: 'Country Sourdough Loaf', description: 'Crusty, open crumb, 24h fermented.', price_cents: 900, compare_at_price_cents: null, sku: 'SS-LOAF', category: 'Bread', tags: ['bestseller'], images: [], inventory_count: 30, track_inventory: true, is_active: true, is_subscription_eligible: true, subscription_interval: 'weekly', stripe_product_id: null, stripe_price_id: null, allergens: ['wheat'], ingredients_label: 'Bread flour, water, whole wheat flour, sea salt, levain.', net_weight: '24 oz', created_at: iso(addDays(-60)), updated_at: iso(addDays(-2)) },
-  { id: 'pr_2', tenant_id: IDS.sara, recipe_id: 'rc_2', name: 'Cinnamon Morning Bun (4-pack)', description: 'Buttery, laminated, brown-butter cinnamon.', price_cents: 1600, compare_at_price_cents: 1800, sku: 'SS-BUN4', category: 'Pastry', tags: [], images: [], inventory_count: 18, track_inventory: true, is_active: true, is_subscription_eligible: false, subscription_interval: null, stripe_product_id: null, stripe_price_id: null, allergens: ['wheat', 'milk', 'eggs'], ingredients_label: 'Flour, butter, sugar, eggs, cinnamon, salt, yeast.', net_weight: '16 oz', created_at: iso(addDays(-50)), updated_at: iso(addDays(-2)) },
-  { id: 'pr_3', tenant_id: IDS.sara, recipe_id: null, name: 'Baker’s Dozen Bagels', description: 'Hand-rolled, boiled, baked.', price_cents: 2400, compare_at_price_cents: null, sku: 'SS-BAGEL13', category: 'Bread', tags: [], images: [], inventory_count: 12, track_inventory: true, is_active: true, is_subscription_eligible: true, subscription_interval: 'weekly', stripe_product_id: null, stripe_price_id: null, allergens: ['wheat'], ingredients_label: 'Flour, water, malt, salt, yeast.', net_weight: '52 oz', created_at: iso(addDays(-30)), updated_at: iso(addDays(-2)) },
+  { id: 'pr_1', tenant_id: IDS.sara, recipe_id: 'rc_1', name: 'Country Sourdough Loaf', description: 'Crusty, open crumb, 24h fermented.', price_cents: 900, compare_at_price_cents: null, sku: 'SS-LOAF', category: 'Bread', tags: ['bestseller'], images: [IMG.bread], inventory_count: 30, track_inventory: true, is_active: true, is_subscription_eligible: true, subscription_interval: 'weekly', stripe_product_id: null, stripe_price_id: null, allergens: ['wheat'], ingredients_label: 'Bread flour, water, whole wheat flour, sea salt, levain.', net_weight: '24 oz', created_at: iso(addDays(-60)), updated_at: iso(addDays(-2)) },
+  { id: 'pr_2', tenant_id: IDS.sara, recipe_id: 'rc_2', name: 'Cinnamon Morning Bun (4-pack)', description: 'Buttery, laminated, brown-butter cinnamon.', price_cents: 1600, compare_at_price_cents: 1800, sku: 'SS-BUN4', category: 'Pastry', tags: [], images: [IMG.pastry], inventory_count: 18, track_inventory: true, is_active: true, is_subscription_eligible: false, subscription_interval: null, stripe_product_id: null, stripe_price_id: null, allergens: ['wheat', 'milk', 'eggs'], ingredients_label: 'Flour, butter, sugar, eggs, cinnamon, salt, yeast.', net_weight: '16 oz', created_at: iso(addDays(-50)), updated_at: iso(addDays(-2)) },
+  { id: 'pr_3', tenant_id: IDS.sara, recipe_id: null, name: 'Baker’s Dozen Bagels', description: 'Hand-rolled, boiled, baked.', price_cents: 2400, compare_at_price_cents: null, sku: 'SS-BAGEL13', category: 'Bread', tags: [], images: [IMG.bagels], inventory_count: 12, track_inventory: true, is_active: true, is_subscription_eligible: true, subscription_interval: 'weekly', stripe_product_id: null, stripe_price_id: null, allergens: ['wheat'], ingredients_label: 'Flour, water, malt, salt, yeast.', net_weight: '52 oz', created_at: iso(addDays(-30)), updated_at: iso(addDays(-2)) },
 ];
 
 export const orders: Order[] = [
@@ -330,7 +331,7 @@ export const announcements: Announcement[] = [
 ];
 
 export const tenantSites: TenantSite[] = [
-  { id: 'ts_sara', tenant_id: IDS.sara, site_slug: 'saras-sourdough', theme: 'warm_artisan', hero_headline: 'Bread with a soul', hero_subheadline: 'Naturally leavened, baked fresh every week in Minneapolis.', hero_image_url: null, about_text: "Sara's Sourdough began with a single jar of starter on a windowsill. Today we bake small batches of naturally-leavened bread for our neighbors — slow-fermented, never rushed.", color_primary: '#2D4A3E', color_secondary: '#F5E6C8', font_heading: 'Playfair Display', font_body: 'Inter', show_products: true, show_about: true, show_contact: true, show_social: true, custom_domain: null, is_published: true, meta_title: "Sara's Sourdough — Naturally leavened bread", meta_description: 'Fresh sourdough bread and pastries, baked weekly in Minneapolis.', created_at: iso(addDays(-50)), updated_at: iso(addDays(-2)) },
+  { id: 'ts_sara', tenant_id: IDS.sara, site_slug: 'saras-sourdough', theme: 'warm_artisan', hero_headline: 'Bread with a soul', hero_subheadline: 'Naturally leavened, baked fresh every week in Minneapolis.', hero_image_url: IMG.heroBread, about_text: "Sara's Sourdough began with a single jar of starter on a windowsill. Today we bake small batches of naturally-leavened bread for our neighbors — slow-fermented, never rushed.", color_primary: '#2D4A3E', color_secondary: '#F5E6C8', font_heading: 'Playfair Display', font_body: 'Inter', show_products: true, show_about: true, show_contact: true, show_social: true, custom_domain: null, is_published: true, meta_title: "Sara's Sourdough — Naturally leavened bread", meta_description: 'Fresh sourdough bread and pastries, baked weekly in Minneapolis.', created_at: iso(addDays(-50)), updated_at: iso(addDays(-2)) },
 ];
 
 export const accessCredentials: AccessCredential[] = [

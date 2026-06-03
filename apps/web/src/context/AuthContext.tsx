@@ -2,7 +2,24 @@ import * as React from 'react';
 import type { Profile, UserRole } from '@culina/shared';
 import { isDemoMode } from '@/lib/config';
 import { authApi, getToken, setToken, clearToken } from '@/lib/authApi';
-import { getProfile, IDS } from '@/lib/store';
+import { dataApi } from '@/lib/dataApi';
+import { getProfile, hydrate, IDS } from '@/lib/store';
+
+/** Pull the user's dataset from D1 into the in-memory store (LIVE mode). */
+async function hydrateFromApi() {
+  try {
+    hydrate(await dataApi.hydrate());
+  } catch (e) {
+    console.warn('hydrate failed:', (e as Error).message);
+  }
+}
+
+/** Seeded demo credentials for each role (LIVE mode one-click login). */
+const demoCreds: Record<UserRole, string> = {
+  operator: 'demo@operator.culina.app',
+  tenant: 'sara@tenant.culina.app',
+  admin: 'admin@culina.app',
+};
 
 interface AuthState {
   profile: Profile | null;
@@ -10,7 +27,7 @@ interface AuthState {
   isDemo: boolean;
   login: (email: string, password: string) => Promise<{ error?: string }>;
   signup: (email: string, password: string, role: UserRole, fullName: string) => Promise<{ error?: string }>;
-  loginAsDemo: (role: UserRole) => void;
+  loginAsDemo: (role: UserRole) => void | Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -48,6 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (getToken()) {
         try {
           const { profile: p } = await authApi.me();
+          await hydrateFromApi();
           if (active) setProfile(p);
         } catch {
           clearToken();
@@ -61,10 +79,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const loginAsDemo = React.useCallback((role: UserRole) => {
-    const id = demoIdForRole[role];
-    localStorage.setItem(DEMO_KEY, id);
-    setProfile(getProfile(id));
+  const loginAsDemo = React.useCallback(async (role: UserRole) => {
+    if (isDemoMode) {
+      const id = demoIdForRole[role];
+      localStorage.setItem(DEMO_KEY, id);
+      setProfile(getProfile(id));
+      return;
+    }
+    // LIVE mode: authenticate the seeded demo account against D1.
+    try {
+      const { token, profile: p } = await authApi.login(demoCreds[role], 'demo1234');
+      setToken(token);
+      await hydrateFromApi();
+      setProfile(p);
+    } catch (e) {
+      console.warn('demo login failed:', (e as Error).message);
+    }
   }, []);
 
   const login = React.useCallback(
@@ -77,6 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const { token, profile: p } = await authApi.login(email, password);
         setToken(token);
+        await hydrateFromApi();
         setProfile(p);
         return {};
       } catch (e) {

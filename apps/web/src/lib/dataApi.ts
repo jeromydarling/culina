@@ -31,6 +31,25 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const dataApi = {
   bootstrap: () => req<{ kitchen: Record<string, unknown> | null; tenants: TenantRow[] }>('bootstrap'),
+  hydrate: () => req<Record<string, unknown[]>>('hydrate'),
   importTenants: (rows: ImportTenantRow[]) =>
     req<{ imported: number }>('tenants/import', { method: 'POST', body: JSON.stringify({ rows }) }),
 };
+
+/**
+ * Write-through persistence. Called by the in-memory store after a mutation
+ * when running in LIVE mode; a no-op otherwise. Fire-and-forget — failures are
+ * logged but don't block the optimistic UI update.
+ */
+export function persist(table: string, row: Record<string, unknown>): void {
+  void req('upsert', { method: 'POST', body: JSON.stringify({ table, row }) }).catch((e) =>
+    console.warn(`persist(${table}) failed:`, e.message),
+  );
+}
+
+export function removeRemote(table: string, id: string): void {
+  void req(`${table}/${id}`, { method: 'DELETE' }).catch((e) =>
+    console.warn(`delete(${table}) failed:`, e.message),
+  );
+}
+

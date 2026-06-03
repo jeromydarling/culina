@@ -25,6 +25,11 @@
     "binding": "AI"
   },
 
+  // Daily compliance sweep → notifications + Resend emails.
+  "triggers": {
+    "crons": ["0 13 * * *"]
+  },
+
   // Cloudflare D1 (SQLite) — the database (created in this account).
   // Migrations live in /migrations and are applied with:
   //   npx wrangler d1 migrations apply culina --remote

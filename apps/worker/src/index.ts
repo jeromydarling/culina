@@ -4,6 +4,7 @@ import { handleImage } from './ai/image';
 import { handleStripe } from './stripe';
 import { handleAuth } from './auth';
 import { handleData } from './data';
+import { runComplianceSweep } from './cron';
 import { handleUpload, handleFile } from './storage';
 
 /**
@@ -80,5 +81,10 @@ export default {
     }
 
     return error('Not found', env, 404);
+  },
+
+  // Daily compliance sweep (see [triggers].crons in wrangler.jsonc).
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(runComplianceSweep(env).then((r) => console.log('compliance sweep', r)));
   },
 };
