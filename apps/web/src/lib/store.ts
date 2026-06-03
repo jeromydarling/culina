@@ -201,6 +201,26 @@ export const updateTenantProfile = (tenantId: string, patch: Partial<TenantProfi
   if (t) { Object.assign(t, patch, { updated_at: new Date().toISOString() }); wt('tenant_profiles', t); }
   return t ?? null;
 };
+/** Create a tenant_profiles row if missing (used when converting a demo to a real account). */
+export const ensureTenantProfile = (tenantId: string, businessName?: string): TenantProfile => {
+  const existing = state.tenantProfiles.find((t) => t.tenant_id === tenantId);
+  if (existing) {
+    if (businessName) updateTenantProfile(tenantId, { business_name: businessName });
+    return existing;
+  }
+  const now = new Date().toISOString();
+  const slug = (businessName ?? 'maker').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + tenantId.slice(0, 4);
+  const created: TenantProfile = {
+    id: genId('tp'), tenant_id: tenantId, business_name: businessName ?? null, business_slug: slug,
+    business_type: null, description: null, logo_url: null, banner_url: null, instagram_url: null,
+    facebook_url: null, website_url: null, stripe_account_id: null, stripe_onboarded: false, ein: null,
+    legal_entity_type: null, state_of_formation: null, annual_revenue_estimate: null, years_in_operation: null,
+    graduation_target_date: null, created_at: now, updated_at: now,
+  };
+  state.tenantProfiles.push(created);
+  wt('tenant_profiles', created);
+  return created;
+};
 
 // ─── Compliance ───────────────────────────────────────────────────────────
 export const listComplianceForKitchen = (kitchenId: string) =>

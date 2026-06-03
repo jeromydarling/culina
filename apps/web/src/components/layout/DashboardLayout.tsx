@@ -1,11 +1,13 @@
 import * as React from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
-import { Bell, LogOut, Menu, X } from 'lucide-react';
+import { Bell, LogOut, Menu, X, FlaskConical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
-import { listNotifications, markNotificationRead } from '@/lib/store';
+import { listNotifications, markNotificationRead, getTenantProfile, getKitchenByOperator } from '@/lib/store';
+import { setSignupPrefill } from '@/lib/signupPrefill';
 
 export interface NavItem {
   to: string;
@@ -33,6 +35,17 @@ export function DashboardLayout({
   async function handleLogout() {
     await logout();
     navigate('/');
+  }
+
+  /** Carry the demo's context into the real sign-up form. */
+  function convertToRealAccount() {
+    if (!profile) return;
+    const businessName =
+      profile.role === 'operator'
+        ? getKitchenByOperator(profile.id)?.name
+        : getTenantProfile(profile.id)?.business_name ?? undefined;
+    setSignupPrefill({ role: profile.role, fullName: profile.full_name ?? undefined, businessName: businessName ?? undefined });
+    navigate('/auth/signup');
   }
 
   const sidebar = (
@@ -100,9 +113,15 @@ export function DashboardLayout({
             <Menu className="h-5 w-5" />
           </button>
           {isDemo && (
-            <span className="hidden rounded-full bg-accent/15 px-3 py-1 text-xs font-medium text-accent sm:inline-flex">
-              Demo mode — explore freely, changes aren’t saved
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/15 px-3 py-1 text-xs font-medium text-accent">
+                <FlaskConical className="h-3.5 w-3.5" /> Demo sandbox
+                <span className="hidden sm:inline">· nothing is saved</span>
+              </span>
+              <Button size="sm" variant="accent" className="hidden sm:inline-flex" onClick={convertToRealAccount}>
+                Create a real account
+              </Button>
+            </div>
           )}
           <div className="ml-auto flex items-center gap-2">
             <div className="relative">

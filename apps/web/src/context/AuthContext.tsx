@@ -3,14 +3,14 @@ import type { Profile, UserRole } from '@culina/shared';
 import { isLive, isDemo, setSessionMode, clearSessionMode } from '@/lib/config';
 import { authApi, getToken, setToken, clearToken } from '@/lib/authApi';
 import { dataApi } from '@/lib/dataApi';
-import { getProfile, hydrate, ensureOperatorKitchen, IDS } from '@/lib/store';
+import { getProfile, hydrate, ensureOperatorKitchen, ensureTenantProfile, updateKitchen, getKitchenByOperator, IDS } from '@/lib/store';
 
 interface AuthState {
   profile: Profile | null;
   loading: boolean;
   isDemo: boolean;
   login: (email: string, password: string) => Promise<{ error?: string }>;
-  signup: (email: string, password: string, role: UserRole, fullName: string) => Promise<{ error?: string }>;
+  signup: (email: string, password: string, role: UserRole, fullName: string, businessName?: string) => Promise<{ error?: string }>;
   loginAsDemo: (role: UserRole) => void;
   logout: () => Promise<void>;
 }
@@ -100,12 +100,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /** Sign-up → real LIVE account. */
   const signup = React.useCallback(
-    async (email: string, password: string, role: UserRole, fullName: string): Promise<{ error?: string }> => {
+    async (email: string, password: string, role: UserRole, fullName: string, businessName?: string): Promise<{ error?: string }> => {
       setSessionMode('live');
       try {
         const { token, profile: p } = await authApi.signup(email, password, role, fullName);
         setToken(token);
         await hydrateFromApi(p);
+        // Carry a business/kitchen name from a converted demo into the real account.
+        if (businessName?.trim()) {
+          if (role === 'tenant') ensureTenantProfile(p.id, businessName.trim());
+          else if (role === 'operator') {
+            const k = getKitchenByOperator(p.id);
+            if (k) updateKitchen(k.id, { name: businessName.trim() });
+          }
+        }
         setProfile(p);
         return {};
       } catch (e) {
