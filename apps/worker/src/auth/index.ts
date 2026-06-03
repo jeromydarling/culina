@@ -1,5 +1,6 @@
 import { type Env, json, error } from '../lib/http';
 import { signJwt, verifyJwt, hashPassword, verifyPassword, uuid } from '../lib/crypto';
+import { getAuthSecret } from '../lib/secret';
 
 interface ProfileRow {
   id: string;
@@ -11,14 +12,12 @@ interface ProfileRow {
   created_at: string;
 }
 
-const secret = (env: Env) => env.AUTH_SECRET || 'dev-insecure-secret-change-me';
-
 /** Resolve the authenticated profile from the Authorization: Bearer header. */
 export async function authenticate(request: Request, env: Env): Promise<ProfileRow | null> {
   if (!env.DB) return null;
   const header = request.headers.get('Authorization');
   if (!header?.startsWith('Bearer ')) return null;
-  const payload = await verifyJwt(header.slice(7), secret(env));
+  const payload = await verifyJwt(header.slice(7), await getAuthSecret(env));
   if (!payload) return null;
   return env.DB.prepare('SELECT id, email, full_name, role, avatar_url, phone, created_at FROM profiles WHERE id = ?')
     .bind(payload.sub)
@@ -52,7 +51,7 @@ export async function handleAuth(action: string, request: Request, env: Env): Pr
       env.DB.prepare('INSERT INTO profiles (id, email, full_name, role, created_at) VALUES (?, ?, ?, ?, ?)').bind(id, email, full_name ?? null, safeRole, now),
     ]);
 
-    const token = await signJwt({ sub: id, role: safeRole }, secret(env));
+    const token = await signJwt({ sub: id, role: safeRole }, await getAuthSecret(env));
     return json({ token, profile: { id, email, full_name: full_name ?? null, role: safeRole, avatar_url: null, phone: null, created_at: now } }, env);
   }
 
@@ -67,7 +66,7 @@ export async function handleAuth(action: string, request: Request, env: Env): Pr
     const profile = await env.DB.prepare('SELECT id, email, full_name, role, avatar_url, phone, created_at FROM profiles WHERE id = ?')
       .bind(user.id)
       .first<ProfileRow>();
-    const token = await signJwt({ sub: user.id, role: profile?.role ?? 'tenant' }, secret(env));
+    const token = await signJwt({ sub: user.id, role: profile?.role ?? 'tenant' }, await getAuthSecret(env));
     return json({ token, profile }, env);
   }
 

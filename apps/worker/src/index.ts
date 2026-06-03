@@ -2,8 +2,9 @@ import { type Env, corsHeaders, json, error } from './lib/http';
 import { handleAI } from './ai';
 import { handleImage } from './ai/image';
 import { handleStripe } from './stripe';
-import { handleAuth } from './auth';
+import { handleAuth, authenticate } from './auth';
 import { handleData } from './data';
+import { checkAiQuota } from './lib/ratelimit';
 import { runComplianceSweep, runMonthlyInvoicing } from './cron';
 import { handleUpload, handleFile } from './storage';
 
@@ -63,15 +64,18 @@ export default {
       return handleFile(fileMatch[1], env);
     }
 
-    // Flux image generation (Workers AI)
-    if (path === '/api/ai/generate-image' && request.method === 'POST') {
-      return handleImage(request, env);
-    }
-
-    // AI text proxy (Claude)
-    const aiMatch = path.match(/^\/api\/ai\/(.+)$/);
-    if (aiMatch && request.method === 'POST') {
-      return handleAI(aiMatch[1], request, env);
+    // AI + image endpoints: metered per identity to cap spend/abuse.
+    const isAi = path === '/api/ai/generate-image' || /^\/api\/ai\/.+$/.test(path);
+    if (isAi && request.method === 'POST') {
+      const who = await authenticate(request, env);
+      const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+      const identity = who ? who.id : `ip:${ip}`;
+      const limit = who ? 100 : 15; // authed users get more headroom
+      if (!(await checkAiQuota(env, identity, limit))) {
+        return error('Daily AI limit reached. Try again tomorrow or sign in for a higher limit.', env, 429);
+      }
+      if (path === '/api/ai/generate-image') return handleImage(request, env);
+      return handleAI(path.replace('/api/ai/', ''), request, env);
     }
 
     // Stripe

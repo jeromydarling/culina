@@ -2,6 +2,9 @@ import { type Env, json, error } from '../lib/http';
 import { authenticate } from '../auth';
 import { uuid } from '../lib/crypto';
 
+const PLATFORM_FEE_PCT = 1.5;
+const MARKETPLACE_COMMISSION_PCT = 5;
+
 /** Per-table field metadata for converting between the app shape and SQLite. */
 const BOOL_FIELDS: Record<string, string[]> = {
   kitchens: ['stripe_onboarded', 'is_listed'],
@@ -28,12 +31,13 @@ const JSON_FIELDS: Record<string, string[]> = {
   learning_resources: ['tags'],
 };
 
+// Tables writable via the generic upsert. Bookings are intentionally excluded —
+// they go through the validated /bookings endpoint (conflict + money checks).
 const WRITABLE = new Set([
   'kitchens', 'kitchen_spaces', 'kitchen_equipment', 'memberships', 'tenant_profiles',
-  'compliance_documents', 'bookings', 'leads', 'invoices', 'recipes', 'products', 'orders',
+  'compliance_documents', 'leads', 'invoices', 'recipes', 'products', 'orders',
   'announcements', 'tenant_sites', 'notifications', 'access_credentials', 'mentor_requests',
   'email_subscribers', 'classifieds', 'community_posts', 'marketplace_transactions',
-  'white_label_configs',
 ]);
 
 function toApp(table: string, row: any): any {
@@ -47,13 +51,69 @@ function toDb(table: string, row: any): any {
   const out = { ...row };
   for (const f of BOOL_FIELDS[table] ?? []) if (f in out) out[f] = out[f] ? 1 : 0;
   for (const f of JSON_FIELDS[table] ?? []) if (out[f] != null && typeof out[f] !== 'string') out[f] = JSON.stringify(out[f]);
-  // Drop joined/extra fields that aren't real columns
   return out;
 }
 
 async function all(env: Env, sql: string, ...binds: unknown[]): Promise<any[]> {
   const { results } = await env.DB!.prepare(sql).bind(...binds).all();
   return results as any[];
+}
+
+type Profile = { id: string; role: string };
+
+async function operatesKitchen(env: Env, kitchenId: string | undefined, profileId: string): Promise<boolean> {
+  if (!kitchenId) return false;
+  const k = await env.DB!.prepare('SELECT operator_id FROM kitchens WHERE id = ?').bind(kitchenId).first<{ operator_id: string }>();
+  return k?.operator_id === profileId;
+}
+
+/** Authorization: can this profile write this row to this table? */
+async function canWrite(env: Env, profile: Profile, table: string, row: any): Promise<boolean> {
+  if (profile.role === 'admin') return true;
+  switch (table) {
+    case 'recipes':
+    case 'products':
+    case 'orders':
+    case 'tenant_sites':
+    case 'tenant_profiles':
+    case 'mentor_requests':
+    case 'email_subscribers':
+      return row.tenant_id === profile.id;
+    case 'notifications':
+      return row.user_id === profile.id;
+    case 'compliance_documents':
+      return row.tenant_id === profile.id || (await operatesKitchen(env, row.kitchen_id, profile.id));
+    case 'kitchens':
+      return row.operator_id === profile.id;
+    case 'classifieds':
+      return row.author_tenant_id === profile.id || (await operatesKitchen(env, row.kitchen_id, profile.id));
+    case 'community_posts':
+      return row.author_id === profile.id || (await operatesKitchen(env, row.kitchen_id, profile.id));
+    case 'kitchen_spaces':
+    case 'kitchen_equipment':
+    case 'memberships':
+    case 'leads':
+    case 'invoices':
+    case 'announcements':
+    case 'access_credentials':
+    case 'marketplace_transactions':
+      return operatesKitchen(env, row.kitchen_id, profile.id);
+    default:
+      return false; // white_label_configs etc. → admin only (handled above)
+  }
+}
+
+/** Recompute money server-side so clients can't dictate fees/totals. */
+function recomputeMoney(table: string, row: any) {
+  if (table === 'invoices') {
+    const subtotal = Number(row.subtotal_cents) || 0;
+    row.platform_fee_cents = Math.round(subtotal * (PLATFORM_FEE_PCT / 100));
+    row.total_cents = subtotal + (Number(row.tax_cents) || 0) + row.platform_fee_cents;
+  }
+  if (table === 'marketplace_transactions') {
+    const amount = Number(row.amount_cents) || 0;
+    row.commission_cents = Math.round(amount * (MARKETPLACE_COMMISSION_PCT / 100));
+  }
 }
 
 export async function handleData(path: string, request: Request, env: Env): Promise<Response> {
@@ -79,26 +139,26 @@ export async function handleData(path: string, request: Request, env: Env): Prom
   const profile = await authenticate(request, env);
   if (!profile) return error('Unauthorized', env, 401);
 
-  // ── Hydrate: full dataset scoped to the user ──────────────────────────
+  // ── Hydrate: only data the user is entitled to (no global PII dump) ────
   if (path === 'hydrate' && request.method === 'GET') {
-    const out: Record<string, any[]> = {};
-    const ref = async () => {
-      out.grants = (await all(env, 'SELECT * FROM grants')).map((r) => toApp('grants', r));
-      out.learningResources = (await all(env, 'SELECT * FROM learning_resources')).map((r) => toApp('learning_resources', r));
-      out.mentors = await all(env, 'SELECT * FROM mentors');
-      out.referralPartners = await all(env, 'SELECT * FROM referral_partners');
-      out.kitchens = (await all(env, 'SELECT * FROM kitchens')).map((r) => toApp('kitchens', r));
-      out.profiles = await all(env, 'SELECT * FROM profiles');
-      out.tenantProfiles = (await all(env, 'SELECT * FROM tenant_profiles')).map((r) => toApp('tenant_profiles', r));
+    const out: Record<string, any[]> = {
+      grants: (await all(env, 'SELECT * FROM grants')).map((r) => toApp('grants', r)),
+      learningResources: (await all(env, 'SELECT * FROM learning_resources')).map((r) => toApp('learning_resources', r)),
+      mentors: await all(env, 'SELECT * FROM mentors'),
+      referralPartners: await all(env, 'SELECT * FROM referral_partners'),
     };
-    await ref();
 
     if (profile.role === 'operator') {
-      const k = await db.prepare('SELECT id FROM kitchens WHERE operator_id = ? LIMIT 1').bind(profile.id).first<{ id: string }>();
+      const k = await db.prepare('SELECT * FROM kitchens WHERE operator_id = ? LIMIT 1').bind(profile.id).first<any>();
+      out.kitchens = k ? [toApp('kitchens', k)] : [];
       const kid = k?.id ?? '';
       out.spaces = (await all(env, 'SELECT * FROM kitchen_spaces WHERE kitchen_id = ?', kid)).map((r) => toApp('kitchen_spaces', r));
       out.equipment = (await all(env, 'SELECT * FROM kitchen_equipment WHERE kitchen_id = ?', kid)).map((r) => toApp('kitchen_equipment', r));
       out.memberships = await all(env, 'SELECT * FROM memberships WHERE kitchen_id = ?', kid);
+      // Only this kitchen's tenants' profiles (scoped PII).
+      out.profiles = await all(env, 'SELECT p.id, p.email, p.full_name, p.role, p.avatar_url, p.phone, p.created_at FROM profiles p JOIN memberships m ON m.tenant_id = p.id WHERE m.kitchen_id = ?', kid);
+      out.profiles.push({ id: profile.id, role: 'operator' });
+      out.tenantProfiles = await all(env, 'SELECT tp.* FROM tenant_profiles tp JOIN memberships m ON m.tenant_id = tp.tenant_id WHERE m.kitchen_id = ?', kid);
       out.bookings = (await all(env, 'SELECT * FROM bookings WHERE kitchen_id = ?', kid)).map((r) => toApp('bookings', r));
       out.leads = await all(env, 'SELECT * FROM leads WHERE kitchen_id = ?', kid);
       out.invoices = (await all(env, 'SELECT * FROM invoices WHERE kitchen_id = ?', kid)).map((r) => toApp('invoices', r));
@@ -109,7 +169,15 @@ export async function handleData(path: string, request: Request, env: Env): Prom
       out.communityPosts = await all(env, 'SELECT * FROM community_posts WHERE kitchen_id = ?', kid);
       out.marketplaceTransactions = await all(env, 'SELECT * FROM marketplace_transactions WHERE kitchen_id = ?', kid);
     } else if (profile.role === 'tenant') {
-      out.memberships = await all(env, 'SELECT * FROM memberships WHERE tenant_id = ?', profile.id);
+      const m = await db.prepare('SELECT * FROM memberships WHERE tenant_id = ? LIMIT 1').bind(profile.id).first<any>();
+      out.memberships = m ? [m] : [];
+      if (m?.kitchen_id) {
+        out.kitchens = (await all(env, 'SELECT * FROM kitchens WHERE id = ?', m.kitchen_id)).map((r) => toApp('kitchens', r));
+        out.announcements = (await all(env, 'SELECT * FROM announcements WHERE kitchen_id = ?', m.kitchen_id)).map((r) => toApp('announcements', r));
+        out.classifieds = await all(env, 'SELECT * FROM classifieds WHERE kitchen_id = ?', m.kitchen_id);
+        out.communityPosts = await all(env, 'SELECT * FROM community_posts WHERE kitchen_id = ?', m.kitchen_id);
+      }
+      out.tenantProfiles = (await all(env, 'SELECT * FROM tenant_profiles WHERE tenant_id = ?', profile.id)).map((r) => toApp('tenant_profiles', r));
       out.bookings = (await all(env, 'SELECT * FROM bookings WHERE tenant_id = ?', profile.id)).map((r) => toApp('bookings', r));
       out.recipes = (await all(env, 'SELECT * FROM recipes WHERE tenant_id = ?', profile.id)).map((r) => toApp('recipes', r));
       out.products = (await all(env, 'SELECT * FROM products WHERE tenant_id = ?', profile.id)).map((r) => toApp('products', r));
@@ -118,6 +186,7 @@ export async function handleData(path: string, request: Request, env: Env): Prom
       out.tenantSites = (await all(env, 'SELECT * FROM tenant_sites WHERE tenant_id = ?', profile.id)).map((r) => toApp('tenant_sites', r));
       out.emailSubscribers = await all(env, 'SELECT * FROM email_subscribers WHERE tenant_id = ?', profile.id);
       out.mentorRequests = await all(env, 'SELECT * FROM mentor_requests WHERE tenant_id = ?', profile.id);
+      out.notifications = await all(env, 'SELECT * FROM notifications WHERE user_id = ?', profile.id);
     } else {
       out.kitchens = (await all(env, 'SELECT * FROM kitchens')).map((r) => toApp('kitchens', r));
       out.whiteLabelConfigs = (await all(env, 'SELECT * FROM white_label_configs')).map((r) => toApp('white_label_configs', r));
@@ -126,7 +195,6 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     return json(out, env);
   }
 
-  // Operator bootstrap (kept for the Tenants page)
   if (path === 'bootstrap' && request.method === 'GET') {
     const kitchen = toApp('kitchens', await db.prepare('SELECT * FROM kitchens WHERE operator_id = ? LIMIT 1').bind(profile.id).first());
     if (!kitchen) return json({ kitchen: null, tenants: [] }, env);
@@ -139,21 +207,84 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     return json({ kitchen, tenants }, env);
   }
 
-  // ── Generic upsert (write-through from the app) ───────────────────────
+  // ── Validated booking creation (conflict + compliance + server money) ──
+  if (path === 'bookings' && request.method === 'POST') {
+    const b: any = await request.json().catch(() => ({}));
+    const space = await db.prepare('SELECT * FROM kitchen_spaces WHERE id = ?').bind(b.space_id).first<any>();
+    if (!space || !space.is_active) return error('Space unavailable', env, 400);
+    const kitchenId = space.kitchen_id;
+
+    // Who is this booking for? Tenants book for themselves; operators for a member.
+    let tenantId = profile.id;
+    if (profile.role === 'operator') {
+      if (!(await operatesKitchen(env, kitchenId, profile.id))) return error('Not your kitchen', env, 403);
+      tenantId = b.tenant_id || profile.id;
+    } else if (b.tenant_id && b.tenant_id !== profile.id) {
+      return error('Cannot book for another tenant', env, 403);
+    }
+
+    const start = new Date(b.start_time);
+    const end = new Date(b.end_time);
+    if (!(end > start)) return error('End must be after start', env, 400);
+
+    // Conflict check: overlapping active booking on the same space.
+    const clash = await db
+      .prepare("SELECT id FROM bookings WHERE space_id = ? AND status IN ('pending','confirmed','completed') AND start_time < ? AND end_time > ? LIMIT 1")
+      .bind(b.space_id, end.toISOString(), start.toISOString())
+      .first();
+    if (clash) return error('That space is already booked for an overlapping time.', env, 409);
+
+    // Compliance: block if a required doc is expired (server-enforced).
+    const expired = await db
+      .prepare("SELECT id FROM compliance_documents WHERE tenant_id = ? AND status = 'expired' AND doc_type IN ('food_handler_cert','liability_insurance') LIMIT 1")
+      .bind(tenantId)
+      .first();
+    if (expired) return error('A required compliance document is expired — booking is blocked.', env, 403);
+
+    // Server-side money (never trust the client).
+    const hours = Math.max(1, (end.getTime() - start.getTime()) / 3.6e6);
+    const equipIds: string[] = Array.isArray(b.equipment_ids) ? b.equipment_ids : [];
+    let equipRate = 0;
+    for (const id of equipIds) {
+      const eq = await db.prepare('SELECT hourly_rate_cents FROM kitchen_equipment WHERE id = ? AND kitchen_id = ?').bind(id, kitchenId).first<{ hourly_rate_cents: number }>();
+      equipRate += eq?.hourly_rate_cents ?? 0;
+    }
+    const subtotal = Math.round(((space.hourly_rate_cents ?? 0) + equipRate) * hours);
+    const fee = Math.round(subtotal * (PLATFORM_FEE_PCT / 100));
+    const id = uuid();
+    const now = new Date().toISOString();
+    const membership = await db.prepare('SELECT id FROM memberships WHERE tenant_id = ? AND kitchen_id = ?').bind(tenantId, kitchenId).first<{ id: string }>();
+
+    await db
+      .prepare(
+        `INSERT INTO bookings (id, kitchen_id, space_id, tenant_id, membership_id, start_time, end_time, status, booking_type,
+          subtotal_cents, platform_fee_cents, total_cents, notes, equipment_ids, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'confirmed', 'hourly', ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(id, kitchenId, b.space_id, tenantId, membership?.id ?? null, start.toISOString(), end.toISOString(), subtotal, fee, subtotal + fee, b.notes ?? null, JSON.stringify(equipIds), now, now)
+      .run();
+
+    const created = await db.prepare('SELECT * FROM bookings WHERE id = ?').bind(id).first();
+    return json({ booking: toApp('bookings', created) }, env);
+  }
+
+  // ── Generic upsert (authorized + money-recomputed) ────────────────────
   if (path === 'upsert' && request.method === 'POST') {
     const body: any = await request.json().catch(() => ({}));
     const { table, row } = body;
     if (!WRITABLE.has(table) || !row?.id) return error('Invalid upsert', env, 400);
+    if (!(await canWrite(env, profile, table, row))) return error('Forbidden', env, 403);
+    recomputeMoney(table, row);
     const data = toDb(table, row);
     const cols = Object.keys(data);
     const placeholders = cols.map(() => '?').join(',');
-    const sql = `INSERT OR REPLACE INTO ${table} (${cols.join(',')}) VALUES (${placeholders})`;
-    await db.prepare(sql).bind(...cols.map((c) => data[c])).run();
+    await db.prepare(`INSERT OR REPLACE INTO ${table} (${cols.join(',')}) VALUES (${placeholders})`).bind(...cols.map((c) => data[c])).run();
     return json({ ok: true }, env);
   }
 
   // ── Bulk import (onboarding) ──────────────────────────────────────────
   if (path === 'tenants/import' && request.method === 'POST') {
+    if (profile.role !== 'operator') return error('Forbidden', env, 403);
     const body: any = await request.json().catch(() => ({}));
     const rows: any[] = Array.isArray(body.rows) ? body.rows : [];
     const kitchen = await db.prepare('SELECT id FROM kitchens WHERE operator_id = ? LIMIT 1').bind(profile.id).first<{ id: string }>();
@@ -179,11 +310,14 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     return json({ imported: created }, env);
   }
 
-  // ── Delete ────────────────────────────────────────────────────────────
+  // ── Delete (authorized) ───────────────────────────────────────────────
   const del = path.match(/^([a-z_]+)\/(.+)$/);
   if (del && request.method === 'DELETE') {
     const [, table, id] = del;
     if (!WRITABLE.has(table)) return error('Invalid delete', env, 400);
+    const existing = await db.prepare(`SELECT * FROM ${table} WHERE id = ?`).bind(id).first<any>();
+    if (!existing) return json({ ok: true }, env);
+    if (!(await canWrite(env, profile, table, existing))) return error('Forbidden', env, 403);
     await db.prepare(`DELETE FROM ${table} WHERE id = ?`).bind(id).run();
     return json({ ok: true }, env);
   }

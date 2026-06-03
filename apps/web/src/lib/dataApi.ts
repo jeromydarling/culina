@@ -36,6 +36,8 @@ export const dataApi = {
     req<{ profile: any; site: any; products: any[] }>(`storefront/${encodeURIComponent(slug)}`),
   importTenants: (rows: ImportTenantRow[]) =>
     req<{ imported: number }>('tenants/import', { method: 'POST', body: JSON.stringify({ rows }) }),
+  createBooking: (input: { space_id: string; start_time: string; end_time: string; equipment_ids?: string[]; notes?: string; tenant_id?: string }) =>
+    req<{ booking: any }>('bookings', { method: 'POST', body: JSON.stringify(input) }),
 };
 
 /**

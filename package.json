@@ -16,13 +16,14 @@
     "deploy": "wrangler deploy",
     "preview": "npm run build && wrangler dev",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
-    "wrangler": "^3.114.0"
+    "wrangler": "^4.20.0"
   },
   "license": "MIT"
 }

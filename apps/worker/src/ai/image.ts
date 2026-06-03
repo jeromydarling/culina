@@ -44,6 +44,18 @@ export async function handleImage(request: Request, env: Env): Promise<Response>
     const b64: string | undefined = result?.image;
     if (!b64) return error('Image model returned no data.', env, 502);
 
+    // Prefer R2 (a small URL) over inlining base64 into D1 rows. Falls back to a
+    // data URL only when no bucket is bound.
+    if (env.STORAGE) {
+      try {
+        const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+        const key = `generated/${crypto.randomUUID()}.jpg`;
+        await env.STORAGE.put(key, bytes, { httpMetadata: { contentType: 'image/jpeg' } });
+        return json({ image: `/api/files/${encodeURIComponent(key)}`, prompt }, env);
+      } catch (e) {
+        console.warn('R2 store failed, returning data URL:', (e as Error).message);
+      }
+    }
     return json({ image: `data:image/jpeg;base64,${b64}`, prompt }, env);
   } catch (e) {
     return error(`Image generation failed: ${(e as Error).message}`, env, 500);

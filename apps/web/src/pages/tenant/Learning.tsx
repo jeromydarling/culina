@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { listLearning, getTenantProfile } from '@/lib/store';
 import { callAI } from '@/lib/ai';
+import { AiDisclaimer } from '@/components/AiDisclaimer';
 import { LEARNING_CATEGORIES } from '@culina/shared';
 import type { LearningResource } from '@culina/shared';
 import { titleCase as catLabel } from '@/lib/format';
@@ -77,7 +78,7 @@ export default function Learning() {
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. What permits do I need to sell jam in Minnesota?" />
             <Button type="submit" variant="accent" disabled={loading}>{loading ? <Spinner className="h-4 w-4 border-white/40 border-t-white" /> : <Send className="h-4 w-4" />}</Button>
           </form>
-          {answer && <pre className="mt-3 whitespace-pre-wrap rounded-lg border bg-white p-4 text-sm leading-relaxed">{answer}</pre>}
+          {answer && <div className="mt-3"><pre className="whitespace-pre-wrap rounded-lg border bg-white p-4 text-sm leading-relaxed">{answer}</pre><AiDisclaimer /></div>}
         </CardContent>
       </Card>
 

@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/modal';
 import { Input, Select } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { listGrants, getTenantProfile, listReferralPartners } from '@/lib/store';
+import { AiDisclaimer } from '@/components/AiDisclaimer';
 import { callAI } from '@/lib/ai';
 import type { Grant } from '@culina/shared';
 import { format } from 'date-fns';
@@ -126,6 +127,7 @@ export default function Grants() {
         ) : (
           <>
             <pre className="max-h-[55vh] overflow-y-auto whitespace-pre-wrap rounded-lg border bg-muted/40 p-4 text-sm leading-relaxed">{draft}</pre>
+            <AiDisclaimer />
             <Button className="mt-3 w-full" onClick={() => { navigator.clipboard?.writeText(draft); toast.success('Copied to clipboard'); }}>Copy draft</Button>
           </>
         )}

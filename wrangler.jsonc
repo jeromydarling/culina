@@ -18,7 +18,9 @@
     "directory": "apps/web/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": true
+    // Only API requests invoke the Worker; static assets are served directly
+    // (cheaper + faster). Requires wrangler v4.
+    "run_worker_first": ["/api/*"]
   },
 
   "ai": {

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label, Textarea, Select } from '@/components/ui/input';
 import { getTenantProfile } from '@/lib/store';
+import { AiDisclaimer } from '@/components/AiDisclaimer';
 import { callAI } from '@/lib/ai';
 
 const tools = [
@@ -119,7 +120,7 @@ function PermittingWizard() {
         <div><Label>Product type</Label><Input value={productType} onChange={(e) => setProductType(e.target.value)} /></div>
         <div className="sm:col-span-2"><Button onClick={run} variant="accent" disabled={loading}>{loading ? <Spinner className="h-4 w-4 border-white/40 border-t-white" /> : <><Sparkles className="h-4 w-4" /> Get permitting steps</>}</Button></div>
       </CardContent></Card>
-      {out && <pre className="whitespace-pre-wrap rounded-lg border bg-muted/40 p-4 text-sm leading-relaxed">{out}</pre>}
+      {out && (<div><pre className="whitespace-pre-wrap rounded-lg border bg-muted/40 p-4 text-sm leading-relaxed">{out}</pre><AiDisclaimer /></div>)}
     </div>
   );
 }
@@ -246,7 +247,7 @@ function BusinessPlan() {
         <div><Label>Target market</Label><Input value={form.market} onChange={(e) => setForm({ ...form, market: e.target.value })} /></div>
         <div className="sm:col-span-2"><Button onClick={run} variant="accent" disabled={loading}>{loading ? <Spinner className="h-4 w-4 border-white/40 border-t-white" /> : <><Sparkles className="h-4 w-4" /> Generate business plan</>}</Button></div>
       </CardContent></Card>
-      {out && <pre className="whitespace-pre-wrap rounded-lg border bg-muted/40 p-4 text-sm leading-relaxed">{out}</pre>}
+      {out && (<div><pre className="whitespace-pre-wrap rounded-lg border bg-muted/40 p-4 text-sm leading-relaxed">{out}</pre><AiDisclaimer /></div>)}
     </div>
   );
 }
@@ -267,7 +268,7 @@ function AITool({ endpoint, inputLabel, buttonLabel, makeFallback }: { endpoint:
         <div><Label>{inputLabel}</Label><Textarea rows={5} value={input} onChange={(e) => setInput(e.target.value)} /></div>
         <Button onClick={run} variant="accent" disabled={loading || !input.trim()}>{loading ? <Spinner className="h-4 w-4 border-white/40 border-t-white" /> : <><Sparkles className="h-4 w-4" /> {buttonLabel}</>}</Button>
       </CardContent></Card>
-      {out && <pre className="whitespace-pre-wrap rounded-lg border bg-muted/40 p-4 text-sm leading-relaxed">{out}</pre>}
+      {out && (<div><pre className="whitespace-pre-wrap rounded-lg border bg-muted/40 p-4 text-sm leading-relaxed">{out}</pre><AiDisclaimer /></div>)}
     </div>
   );
 }

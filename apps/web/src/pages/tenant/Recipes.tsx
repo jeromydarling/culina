@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { listRecipes, upsertRecipe, deleteRecipe, getRecipe } from '@/lib/store';
 import { callAI } from '@/lib/ai';
+import { AiDisclaimer } from '@/components/AiDisclaimer';
 import { computeCogs, formatCents } from '@culina/shared';
 import type { Recipe, RecipeIngredient } from '@culina/shared';
 import { genId } from '@/lib/utils';
@@ -239,7 +240,7 @@ function RecipeEditor({ id, onBack }: { id: string; onBack: () => void }) {
               <Button variant="accent" className="w-full" onClick={getAdvice} disabled={loadingAdvice}>
                 {loadingAdvice ? <Spinner className="h-4 w-4 border-white/40 border-t-white" /> : 'Suggest ways to reduce COGS'}
               </Button>
-              {advice && <pre className="mt-3 whitespace-pre-wrap rounded-lg border bg-muted/40 p-3 text-xs leading-relaxed">{advice}</pre>}
+              {advice && <div className="mt-3"><pre className="whitespace-pre-wrap rounded-lg border bg-muted/40 p-3 text-xs leading-relaxed">{advice}</pre><AiDisclaimer /></div>}
             </CardContent>
           </Card>
         </div>

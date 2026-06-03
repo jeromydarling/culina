@@ -11,8 +11,11 @@ import {
   listSpaces,
   listEquipment,
   createBooking,
+  addBookingLocal,
   listComplianceForTenant,
 } from '@/lib/store';
+import { dataApi } from '@/lib/dataApi';
+import { isLive } from '@/lib/config';
 import { formatCents, feeBreakdown, SPACE_TYPE_LABELS } from '@culina/shared';
 import { format } from 'date-fns';
 
@@ -37,18 +40,28 @@ export default function Book() {
   const subtotal = Math.round(((space?.hourly_rate_cents ?? 0) + equipRate) * hours);
   const fb = feeBreakdown(subtotal);
 
-  function book(e: React.FormEvent) {
+  async function book(e: React.FormEvent) {
     e.preventDefault();
     if (blocked) return toast.error('A required document is expired. Update your documents to book.');
-    createBooking({
-      kitchen_id: kitchenId,
+    const payload = {
       space_id: spaceId,
-      tenant_id: profile!.id,
       start_time: new Date(`${date}T${start}`).toISOString(),
       end_time: new Date(`${date}T${end}`).toISOString(),
       equipment_ids: equip,
-    });
-    toast.success('Booking confirmed! A calendar invite is on its way.');
+    };
+    if (isLive()) {
+      // Server validates conflicts, compliance, and recomputes pricing.
+      try {
+        const { booking } = await dataApi.createBooking(payload);
+        addBookingLocal(booking);
+        toast.success('Booking confirmed! A calendar invite is on its way.');
+      } catch (err) {
+        toast.error((err as Error).message);
+      }
+    } else {
+      createBooking({ kitchen_id: kitchenId, tenant_id: profile!.id, ...payload });
+      toast.success('Booking confirmed! A calendar invite is on its way.');
+    }
   }
 
   return (

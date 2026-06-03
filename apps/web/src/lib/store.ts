@@ -298,6 +298,10 @@ export const createBooking = (input: {
   wt('bookings', booking);
   return booking;
 };
+/** Insert a server-created booking into the in-memory store (no write-through). */
+export const addBookingLocal = (b: Booking) => {
+  state.bookings.push(b);
+};
 export const updateBooking = (id: string, patch: Partial<Booking>) => {
   const b = state.bookings.find((x) => x.id === id);
   if (b) { Object.assign(b, patch, { updated_at: new Date().toISOString() }); wt('bookings', b); }

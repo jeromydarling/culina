@@ -16,7 +16,10 @@ import {
   getTenantProfile,
   getProfile,
   createBooking,
+  addBookingLocal,
 } from '@/lib/store';
+import { dataApi } from '@/lib/dataApi';
+import { isLive } from '@/lib/config';
 import { formatCents, feeBreakdown } from '@culina/shared';
 import { addDays, startOfWeek, format, isSameDay } from 'date-fns';
 
@@ -46,17 +49,26 @@ export default function Calendar() {
   const subtotal = Math.round(((space?.hourly_rate_cents ?? 0) + equipRate) * hours);
   const fb = feeBreakdown(subtotal);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    createBooking({
-      kitchen_id: kitchen.id,
+    const payload = {
       space_id: form.space_id,
       tenant_id: form.tenant_id,
       start_time: new Date(`${form.date}T${form.start}`).toISOString(),
       end_time: new Date(`${form.date}T${form.end}`).toISOString(),
       equipment_ids: form.equipment,
       notes: form.notes,
-    });
+    };
+    if (isLive()) {
+      try {
+        const { booking } = await dataApi.createBooking(payload);
+        addBookingLocal(booking);
+      } catch (err) {
+        return toast.error((err as Error).message);
+      }
+    } else {
+      createBooking({ kitchen_id: kitchen.id, ...payload });
+    }
     setOpen(false);
     setTick((t) => t + 1);
     toast.success('Booking created');
