@@ -54,9 +54,8 @@
     { "binding": "STORAGE", "bucket_name": "culina-files" }
   ],
 
-  // Cloudflare Images — on-the-fly thumbnails for /api/files?w=. Enable Images
-  // in the dashboard, then uncomment to serve lean WebP variants from R2.
-  // "images": { "binding": "IMAGES" },
+  // Cloudflare Images — on-the-fly thumbnails for /api/files?w= (lean WebP).
+  "images": { "binding": "IMAGES" },
 
   "vars": {
     "ANTHROPIC_MODEL": "claude-3-5-sonnet-20241022",
