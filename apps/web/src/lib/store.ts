@@ -302,6 +302,30 @@ export const createBooking = (input: {
 export const addBookingLocal = (b: Booking) => {
   state.bookings.push(b);
 };
+
+/** Replay work captured from a demo session into a freshly created real account. */
+export const applyDemoCarry = (
+  role: string,
+  ownerId: string,
+  carry: { recipes?: Recipe[]; products?: Product[]; site?: TenantSite | null; spaces?: KitchenSpace[]; equipment?: KitchenEquipment[] } | undefined,
+) => {
+  if (!carry) return;
+  if (role === 'tenant') {
+    (carry.recipes ?? []).forEach(({ id: _i, ...rest }) => upsertRecipe({ ...rest, tenant_id: ownerId }));
+    (carry.products ?? []).forEach(({ id: _i, ...rest }) => upsertProduct({ ...rest, tenant_id: ownerId }));
+    if (carry.site) {
+      const { id: _i, ...rest } = carry.site;
+      const slug = `${carry.site.site_slug || 'shop'}-${ownerId.slice(0, 4)}`;
+      upsertTenantSite({ ...rest, tenant_id: ownerId, site_slug: slug });
+    }
+  } else if (role === 'operator') {
+    const k = getKitchenByOperator(ownerId);
+    if (!k) return;
+    (carry.spaces ?? []).forEach(({ id: _i, ...rest }) => upsertSpace({ ...rest, kitchen_id: k.id }));
+    (carry.equipment ?? []).forEach(({ id: _i, ...rest }) => upsertEquipment({ ...rest, kitchen_id: k.id }));
+  }
+};
+
 export const updateBooking = (id: string, patch: Partial<Booking>) => {
   const b = state.bookings.find((x) => x.id === id);
   if (b) { Object.assign(b, patch, { updated_at: new Date().toISOString() }); wt('bookings', b); }

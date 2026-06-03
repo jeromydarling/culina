@@ -9,7 +9,8 @@ import { Spinner } from '@/components/ui/misc';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { notifyError } from '@/lib/errors';
-import { takeSignupPrefill } from '@/lib/signupPrefill';
+import { takeSignupPrefill, type DemoCarry } from '@/lib/signupPrefill';
+import { carrySummary } from '@/lib/convert';
 import type { UserRole } from '@culina/shared';
 
 export default function Signup() {
@@ -19,6 +20,7 @@ export default function Signup() {
   const [form, setForm] = React.useState({ name: '', email: '', password: '', business: '' });
   const [loading, setLoading] = React.useState(false);
   const [converting, setConverting] = React.useState(false);
+  const [carry, setCarry] = React.useState<DemoCarry | undefined>();
 
   // Prefill from a converted demo session, if present.
   React.useEffect(() => {
@@ -26,17 +28,20 @@ export default function Signup() {
     if (pre) {
       setRole(pre.role);
       setForm((f) => ({ ...f, name: pre.fullName ?? '', business: pre.businessName ?? '' }));
+      setCarry(pre.carry);
       setConverting(true);
     }
   }, []);
 
+  const keepList = carry?.counts ? carrySummary(carry.counts) : [];
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await signup(form.email, form.password, role, form.name, form.business);
+    const { error } = await signup(form.email, form.password, role, form.name, form.business, carry);
     setLoading(false);
     if (error) return notifyError(new Error(error), { action: 'signup' });
-    toast.success('Welcome to Culina!');
+    toast.success(keepList.length ? 'Welcome to Culina — your work is saved!' : 'Welcome to Culina!');
     navigate(role === 'operator' ? '/operator' : '/tenant');
   }
 
@@ -52,9 +57,14 @@ export default function Signup() {
         {converting ? 'Turn your demo into a real account — your details are carried over.' : 'Free to start. No card required.'}
       </p>
 
-      {converting && form.business && (
-        <div className="mt-4 rounded-lg border border-accent/30 bg-accent/5 px-4 py-2 text-sm">
-          Continuing as <span className="font-semibold">{form.business}</span>
+      {converting && (form.business || keepList.length > 0) && (
+        <div className="mt-4 rounded-lg border border-accent/30 bg-accent/5 px-4 py-3 text-sm">
+          {form.business && <div>Continuing as <span className="font-semibold">{form.business}</span></div>}
+          {keepList.length > 0 && (
+            <div className="mt-1 text-muted-foreground">
+              We’ll bring over <span className="font-medium text-foreground">{keepList.join(', ')}</span> from your demo.
+            </div>
+          )}
         </div>
       )}
 

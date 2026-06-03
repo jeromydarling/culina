@@ -1,10 +1,21 @@
-import type { UserRole } from '@culina/shared';
+import type { UserRole, Recipe, Product, TenantSite, KitchenSpace, KitchenEquipment } from '@culina/shared';
+
+/** Work captured from a demo session to replay into a new real account. */
+export interface DemoCarry {
+  recipes?: Recipe[];
+  products?: Product[];
+  site?: TenantSite | null;
+  spaces?: KitchenSpace[];
+  equipment?: KitchenEquipment[];
+  counts: Record<string, number>;
+}
 
 /** Carries context from a demo session into the real sign-up form. */
 export interface SignupPrefill {
   role: UserRole;
   fullName?: string;
   businessName?: string; // business name (maker) or kitchen name (operator)
+  carry?: DemoCarry;
 }
 
 const KEY = 'culina_signup_prefill';

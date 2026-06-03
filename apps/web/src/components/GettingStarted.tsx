@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+import { isDemo } from '@/lib/config';
+import { captureConversion } from '@/lib/convert';
 import { ONBOARDING_STEPS, TENANT_ONBOARDING_STEPS, getCompletedSteps, hasBeenWelcomed, markWelcomed } from '@/lib/onboarding';
 
 interface Config {
@@ -84,8 +86,13 @@ export function GettingStarted({ role }: { role: 'operator' | 'tenant' }) {
               );
             })}
           </div>
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap gap-2">
             <Link to={cfg.onboardingPath}><Button><Sparkles className="h-4 w-4" /> Open the guided setup</Button></Link>
+            {isDemo() && profile && (
+              <Button variant="accent" onClick={() => { captureConversion(profile); navigate('/auth/signup'); }}>
+                Save my work — create a real account
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

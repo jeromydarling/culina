@@ -6,8 +6,8 @@ import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
-import { listNotifications, markNotificationRead, getTenantProfile, getKitchenByOperator } from '@/lib/store';
-import { setSignupPrefill } from '@/lib/signupPrefill';
+import { listNotifications, markNotificationRead } from '@/lib/store';
+import { captureConversion } from '@/lib/convert';
 
 export interface NavItem {
   to: string;
@@ -37,14 +37,10 @@ export function DashboardLayout({
     navigate('/');
   }
 
-  /** Carry the demo's context into the real sign-up form. */
+  /** Capture the demo's work and context, then go to real sign-up. */
   function convertToRealAccount() {
     if (!profile) return;
-    const businessName =
-      profile.role === 'operator'
-        ? getKitchenByOperator(profile.id)?.name
-        : getTenantProfile(profile.id)?.business_name ?? undefined;
-    setSignupPrefill({ role: profile.role, fullName: profile.full_name ?? undefined, businessName: businessName ?? undefined });
+    captureConversion(profile);
     navigate('/auth/signup');
   }
 
