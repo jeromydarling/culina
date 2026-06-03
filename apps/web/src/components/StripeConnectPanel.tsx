@@ -5,6 +5,8 @@ import { PageHeader } from '@/components/ui/misc';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PLATFORM_FEE_PERCENT } from '@culina/shared';
+import { connectStart } from '@/lib/stripeApi';
+import { notifyError } from '@/lib/errors';
 
 export function StripeConnectPanel({
   onboarded: initialOnboarded,
@@ -16,14 +18,21 @@ export function StripeConnectPanel({
   const [onboarded, setOnboarded] = React.useState(initialOnboarded);
   const [loading, setLoading] = React.useState(false);
 
-  function connect() {
+  async function connect() {
     setLoading(true);
-    // In production this calls POST /api/stripe/connect/create-account-link
-    setTimeout(() => {
+    try {
+      const res = await connectStart(window.location.href);
+      if (res.url) {
+        window.location.href = res.url; // hosted Stripe onboarding
+        return;
+      }
+      // No Stripe keys configured yet → simulated success for the demo.
       setOnboarded(true);
-      setLoading(false);
-      toast.success('Stripe Connect account linked (demo).');
-    }, 1200);
+      toast.success('Stripe Connect linked (demo — add Stripe keys to go live).');
+    } catch (e) {
+      notifyError(e, { action: 'stripeConnect' });
+    }
+    setLoading(false);
   }
 
   const flow =

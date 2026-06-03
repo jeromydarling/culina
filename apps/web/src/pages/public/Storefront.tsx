@@ -8,6 +8,8 @@ import { Modal } from '@/components/ui/modal';
 import { Input, Label } from '@/components/ui/input';
 import { getTenantProfileBySlug, getTenantSiteBySlug, getTenantSite, listPublicProducts } from '@/lib/store';
 import { dataApi } from '@/lib/dataApi';
+import { startCheckout } from '@/lib/stripeApi';
+import { notifyError } from '@/lib/errors';
 import { Spinner } from '@/components/ui/misc';
 import type { Product, TenantProfile, TenantSite } from '@culina/shared';
 import { formatCents, feeBreakdown } from '@culina/shared';
@@ -45,6 +47,20 @@ export default function Storefront() {
   const [cart, setCart] = React.useState<Record<string, number>>({});
   const [cartOpen, setCartOpen] = React.useState(false);
   const [checkout, setCheckout] = React.useState(false);
+  const [email, setEmail] = React.useState('');
+  const [paying, setPaying] = React.useState(false);
+
+  // Returning from Stripe Checkout.
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('paid') === '1') {
+      toast.success('Payment complete — thank you! Your order is confirmed.');
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (params.get('canceled') === '1') {
+      toast.info('Checkout canceled — your cart is still here.');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   if (remote === undefined && !inMemory?.profile) {
     return <div className="grid min-h-screen place-items-center"><Spinner className="h-8 w-8" /></div>;
@@ -80,12 +96,25 @@ export default function Storefront() {
       return next;
     });
 
-  function placeOrder(e: React.FormEvent) {
+  async function placeOrder(e: React.FormEvent) {
     e.preventDefault();
-    setCheckout(false);
-    setCartOpen(false);
-    setCart({});
-    toast.success('Order placed! A confirmation email is on its way. (Demo)');
+    setPaying(true);
+    try {
+      const items = cartItems.map((x) => ({ product_id: x.product.id, qty: x.qty }));
+      const res = await startCheckout(slug ?? '', items, email);
+      if (res.url) {
+        window.location.href = res.url; // hosted Stripe Checkout
+        return;
+      }
+      // No Stripe keys yet → simulated confirmation for the demo.
+      setCheckout(false);
+      setCartOpen(false);
+      setCart({});
+      toast.success('Order placed! A confirmation email is on its way. (Demo)');
+    } catch (err) {
+      notifyError(err, { action: 'checkout' });
+    }
+    setPaying(false);
   }
 
   return (
@@ -187,15 +216,15 @@ export default function Storefront() {
       </Modal>
 
       {/* checkout */}
-      <Modal open={checkout} onClose={() => setCheckout(false)} title="Checkout" description="Secure payment via Stripe (demo)">
+      <Modal open={checkout} onClose={() => setCheckout(false)} title="Checkout" description="Secure payment via Stripe">
         <form onSubmit={placeOrder} className="space-y-3">
           <div><Label>Name</Label><Input required /></div>
-          <div><Label>Email</Label><Input required type="email" /></div>
+          <div><Label>Email</Label><Input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
           <div className="rounded-lg border bg-muted/40 p-3 text-sm">
             <div className="flex justify-between"><span>Total due</span><span className="font-semibold">{formatCents(fb.totalCents)}</span></div>
             <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground"><X className="h-3 w-3" /> No card charged in demo mode</div>
           </div>
-          <Button type="submit" className="w-full" style={{ background: primary }}>Pay {formatCents(fb.totalCents)}</Button>
+          <Button type="submit" disabled={paying} className="w-full" style={{ background: primary }}>{paying ? 'Redirecting…' : `Pay ${formatCents(fb.totalCents)}`}</Button>
         </form>
       </Modal>
     </div>

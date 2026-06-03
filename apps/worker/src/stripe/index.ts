@@ -1,7 +1,11 @@
 import { type Env, json, error } from '../lib/http';
+import { authenticate } from '../auth';
+import { uuid } from '../lib/crypto';
 import { PLATFORM_FEE_PERCENT } from '@culina/shared';
 
-/** Encode a flat/nested object as application/x-www-form-urlencoded for the Stripe API. */
+const enc = new TextEncoder();
+
+/** Encode a (possibly nested) object as application/x-www-form-urlencoded for Stripe. */
 function form(params: Record<string, unknown>, prefix = ''): string {
   const parts: string[] = [];
   for (const [k, v] of Object.entries(params)) {
@@ -16,10 +20,7 @@ function form(params: Record<string, unknown>, prefix = ''): string {
 async function stripe(env: Env, path: string, params: Record<string, unknown>): Promise<any> {
   const res = await fetch(`https://api.stripe.com/v1/${path}`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
+    headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: form(params),
   });
   const data = await res.json();
@@ -27,128 +28,169 @@ async function stripe(env: Env, path: string, params: Record<string, unknown>): 
   return data;
 }
 
-function feeCents(amountCents: number, env: Env): number {
-  const pct = Number(env.STRIPE_PLATFORM_FEE_PERCENT ?? PLATFORM_FEE_PERCENT);
-  return Math.round(amountCents * (pct / 100));
-}
+const feeCents = (amount: number, env: Env) =>
+  Math.round(amount * (Number(env.STRIPE_PLATFORM_FEE_PERCENT ?? PLATFORM_FEE_PERCENT) / 100));
+
+const origin = (request: Request) => new URL(request.url).origin;
 
 export async function handleStripe(action: string, request: Request, env: Env): Promise<Response> {
-  if (!env.STRIPE_SECRET_KEY && action !== 'webhooks') {
+  if (action === 'webhooks') return handleWebhook(request, env);
+
+  if (!env.STRIPE_SECRET_KEY) {
+    // No keys yet → tell the client to use its simulated fallback.
     return json({ demo: true, note: 'STRIPE_SECRET_KEY not configured on the worker.' }, env);
   }
-  const body: any = await request.json().catch(() => ({}));
 
-  try {
-    switch (action) {
-      case 'connect/create-account': {
-        const account = await stripe(env, 'accounts', {
-          type: 'express',
-          email: body.email,
-          capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
-        });
-        return json({ account_id: account.id }, env);
-      }
+  // ── Connect onboarding (operator or maker) ──────────────────────────────
+  if (action === 'connect/start') {
+    const profile = await authenticate(request, env);
+    if (!profile || !env.DB) return error('Unauthorized', env, 401);
+    const body: any = await request.json().catch(() => ({}));
 
-      case 'connect/create-account-link': {
-        const link = await stripe(env, 'account_links', {
-          account: body.account_id,
-          refresh_url: body.refresh_url,
-          return_url: body.return_url,
-          type: 'account_onboarding',
-        });
-        return json({ url: link.url }, env);
-      }
-
-      case 'create-payment-intent': {
-        // Direct charge on platform with destination transfer + application fee.
-        const amount = Number(body.amount_cents);
-        const pi = await stripe(env, 'payment_intents', {
-          amount,
-          currency: 'usd',
-          application_fee_amount: feeCents(amount, env),
-          transfer_data: { destination: body.connected_account_id },
-          metadata: { booking_id: body.booking_id ?? '', order_id: body.order_id ?? '' },
-        });
-        return json({ client_secret: pi.client_secret, id: pi.id }, env);
-      }
-
-      case 'create-checkout-session': {
-        const amount = Number(body.amount_cents);
-        const session = await stripe(env, 'checkout/sessions', {
-          mode: 'payment',
-          success_url: body.success_url,
-          cancel_url: body.cancel_url,
-          'line_items[0]': {
-            quantity: 1,
-            price_data: { currency: 'usd', unit_amount: amount, product_data: { name: body.description ?? 'Order' } },
-          },
-          payment_intent_data: {
-            application_fee_amount: feeCents(amount, env),
-            transfer_data: { destination: body.connected_account_id },
-          },
-        });
-        return json({ url: session.url, id: session.id }, env);
-      }
-
-      case 'create-subscription': {
-        const sub = await stripe(env, 'subscriptions', {
-          customer: body.customer_id,
-          'items[0]': { price: body.price_id },
-          application_fee_percent: Number(env.STRIPE_PLATFORM_FEE_PERCENT ?? PLATFORM_FEE_PERCENT),
-          transfer_data: { destination: body.connected_account_id },
-        });
-        return json({ subscription_id: sub.id, status: sub.status }, env);
-      }
-
-      case 'webhooks':
-        return handleWebhook(request, env);
-
-      default:
-        return error(`Unknown Stripe action: ${action}`, env, 404);
+    // Where the connected-account id lives depends on the role.
+    let accountId: string | null = null;
+    let entity: { table: string; idCol: string; id: string } | null = null;
+    if (profile.role === 'operator') {
+      const k = await env.DB.prepare('SELECT id, stripe_account_id FROM kitchens WHERE operator_id = ? LIMIT 1').bind(profile.id).first<any>();
+      if (!k) return error('No kitchen found', env, 400);
+      accountId = k.stripe_account_id;
+      entity = { table: 'kitchens', idCol: 'id', id: k.id };
+    } else {
+      const tp = await env.DB.prepare('SELECT id, stripe_account_id FROM tenant_profiles WHERE tenant_id = ? LIMIT 1').bind(profile.id).first<any>();
+      if (!tp) return error('No business profile found', env, 400);
+      accountId = tp.stripe_account_id;
+      entity = { table: 'tenant_profiles', idCol: 'id', id: tp.id };
     }
-  } catch (e) {
-    return error((e as Error).message, env, 502);
+
+    if (!accountId) {
+      const account = await stripe(env, 'accounts', {
+        type: 'express',
+        email: profile.email,
+        capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
+        business_type: 'individual',
+      });
+      accountId = account.id;
+      await env.DB.prepare(`UPDATE ${entity.table} SET stripe_account_id = ? WHERE ${entity.idCol} = ?`).bind(accountId, entity.id).run();
+    }
+
+    const link = await stripe(env, 'account_links', {
+      account: accountId,
+      refresh_url: body.return_url || `${origin(request)}/`,
+      return_url: body.return_url || `${origin(request)}/`,
+      type: 'account_onboarding',
+    });
+    return json({ url: link.url, account_id: accountId }, env);
   }
+
+  // ── Storefront checkout (customer → maker, with platform fee) ────────────
+  if (action === 'checkout') {
+    if (!env.DB) return error('Database not configured', env, 503);
+    const body: any = await request.json().catch(() => ({}));
+    const slug: string = body.slug;
+    const items: { product_id: string; qty: number }[] = Array.isArray(body.items) ? body.items : [];
+    const tp = await env.DB.prepare('SELECT tenant_id, business_name, stripe_account_id, stripe_onboarded FROM tenant_profiles WHERE business_slug = ?').bind(slug).first<any>();
+    if (!tp) return error('Shop not found', env, 404);
+    if (!tp.stripe_account_id || !tp.stripe_onboarded) return error('This shop isn’t accepting online payments yet.', env, 400);
+
+    // Recompute every price server-side from the catalog (never trust the client).
+    const lineItems: Record<string, unknown> = {};
+    let subtotal = 0;
+    let i = 0;
+    const orderItems: any[] = [];
+    for (const it of items) {
+      const p = await env.DB.prepare('SELECT name, price_cents FROM products WHERE id = ? AND tenant_id = ? AND is_active = 1').bind(it.product_id, tp.tenant_id).first<any>();
+      if (!p) continue;
+      const qty = Math.max(1, Math.min(99, Number(it.qty) || 1));
+      subtotal += p.price_cents * qty;
+      orderItems.push({ product_id: it.product_id, name: p.name, qty, price_cents: p.price_cents });
+      lineItems[`line_items[${i}]`] = { quantity: qty, price_data: { currency: 'usd', unit_amount: p.price_cents, product_data: { name: p.name } } };
+      i += 1;
+    }
+    if (subtotal <= 0) return error('Cart is empty', env, 400);
+
+    const orderId = uuid();
+    const orderNumber = `CL-${Date.now().toString(36).toUpperCase()}`;
+    const session = await stripe(env, 'checkout/sessions', {
+      mode: 'payment',
+      success_url: `${origin(request)}/shop/${slug}?paid=1`,
+      cancel_url: `${origin(request)}/shop/${slug}?canceled=1`,
+      ...lineItems,
+      payment_intent_data: { application_fee_amount: feeCents(subtotal, env), transfer_data: { destination: tp.stripe_account_id } },
+      metadata: { order_id: orderId, tenant_id: tp.tenant_id, slug },
+    });
+
+    // Record a pending order; the webhook marks it paid.
+    const now = new Date().toISOString();
+    await env.DB.prepare(
+      `INSERT INTO orders (id, tenant_id, customer_email, order_number, items, subtotal_cents, platform_fee_cents, total_cents, status, fulfillment_type, stripe_payment_intent_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pickup', ?, ?)`,
+    ).bind(orderId, tp.tenant_id, body.email ?? 'guest@culina.app', orderNumber, JSON.stringify(orderItems), subtotal, feeCents(subtotal, env), subtotal, session.id, now).run();
+
+    return json({ url: session.url }, env);
+  }
+
+  return error(`Unknown Stripe action: ${action}`, env, 404);
 }
 
-/**
- * Stripe webhook receiver. In production, verify the signature with
- * STRIPE_WEBHOOK_SECRET (HMAC-SHA256 over `${timestamp}.${payload}`) before
- * acting on events. We parse and route the key events Culina cares about.
- */
+/** Verify Stripe's `Stripe-Signature` header (HMAC-SHA256 over `${t}.${payload}`). */
+async function verifySignature(payload: string, header: string | null, secret: string): Promise<boolean> {
+  if (!header) return false;
+  const parts: Record<string, string> = {};
+  for (const kv of header.split(',')) {
+    const [k, v] = kv.split('=');
+    if (k && v) parts[k.trim()] = v.trim();
+  }
+  if (!parts.t || !parts.v1) return false;
+  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(`${parts.t}.${payload}`));
+  const hex = [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  if (hex.length !== parts.v1.length) return false;
+  let diff = 0;
+  for (let j = 0; j < hex.length; j++) diff |= hex.charCodeAt(j) ^ parts.v1.charCodeAt(j);
+  return diff === 0;
+}
+
 async function handleWebhook(request: Request, env: Env): Promise<Response> {
   const payload = await request.text();
+  if (env.STRIPE_WEBHOOK_SECRET) {
+    const ok = await verifySignature(payload, request.headers.get('Stripe-Signature'), env.STRIPE_WEBHOOK_SECRET);
+    if (!ok) return error('Invalid signature', env, 400);
+  }
   let event: any;
   try {
     event = JSON.parse(payload);
   } catch {
     return error('Invalid payload', env, 400);
   }
+  const obj = event?.data?.object ?? {};
 
-  // NOTE: signature verification omitted in this scaffold — add HMAC check here.
-  switch (event.type) {
-    case 'payment_intent.succeeded':
-      // → mark booking/order paid in Supabase
-      break;
-    case 'payment_intent.payment_failed':
-      // → notify tenant, queue retry
-      break;
-    case 'invoice.paid':
-      // → mark invoice paid
-      break;
-    case 'invoice.payment_failed':
-      // → notify operator + tenant
-      break;
-    case 'account.updated':
-      // → update stripe_onboarded based on charges_enabled/payouts_enabled
-      break;
-    case 'customer.subscription.created':
-    case 'customer.subscription.updated':
-    case 'customer.subscription.deleted':
-      // → sync membership/order subscription status
-      break;
-    default:
-      break;
+  if (env.DB) {
+    switch (event.type) {
+      case 'account.updated': {
+        const onboarded = obj.charges_enabled ? 1 : 0;
+        await env.DB.prepare('UPDATE kitchens SET stripe_onboarded = ? WHERE stripe_account_id = ?').bind(onboarded, obj.id).run();
+        await env.DB.prepare('UPDATE tenant_profiles SET stripe_onboarded = ? WHERE stripe_account_id = ?').bind(onboarded, obj.id).run();
+        break;
+      }
+      case 'checkout.session.completed': {
+        const orderId = obj.metadata?.order_id;
+        if (orderId) {
+          await env.DB.prepare("UPDATE orders SET status = 'confirmed', customer_email = COALESCE(?, customer_email), stripe_payment_intent_id = ? WHERE id = ?")
+            .bind(obj.customer_details?.email ?? null, obj.payment_intent ?? null, orderId).run();
+          const tenant = obj.metadata?.tenant_id;
+          if (tenant) {
+            await env.DB.prepare('INSERT INTO notifications (id, user_id, title, body, type, is_read, action_url, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)')
+              .bind(uuid(), tenant, 'New order!', 'You received a paid storefront order.', 'order', '/tenant/products', new Date().toISOString()).run();
+          }
+        }
+        break;
+      }
+      case 'payment_intent.payment_failed':
+        // Surface to the maker if we can map it; non-fatal.
+        break;
+      default:
+        break;
+    }
   }
   return json({ received: true, type: event.type }, env);
 }
