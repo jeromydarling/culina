@@ -36,6 +36,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const dataApi = {
   bootstrap: () => req<{ kitchen: Record<string, unknown> | null; tenants: TenantRow[] }>('bootstrap'),
+  kitchens: () => req<{ kitchens: any[] }>('kitchens'), // public listed-kitchen directory
   hydrate: async () => {
     const data = await req<Record<string, any[]>>('hydrate');
     // Seed revision tokens so write-through can detect concurrent edits.

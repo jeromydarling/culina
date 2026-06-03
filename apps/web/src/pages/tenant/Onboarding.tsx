@@ -12,6 +12,8 @@ import { Input, Label, Textarea, Select } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/misc';
 import { cn } from '@/lib/utils';
 import { getTenantProfile, updateTenantProfile, getMembershipForTenant, getKitchenBySlug, listKitchens } from '@/lib/store';
+import { dataApi } from '@/lib/dataApi';
+import { isLive } from '@/lib/config';
 import { completeStep, markWelcomed, type OnboardingStepId } from '@/lib/onboarding';
 import { uploadFile } from '@/lib/upload';
 import { notifyError } from '@/lib/errors';
@@ -24,7 +26,12 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const tp = getTenantProfile(profile!.id);
   const membership = getMembershipForTenant(profile!.id);
-  const kitchens = listKitchens().filter((k) => k.is_listed);
+  // Public directory of listed kitchens (so a new tenant sees real options, not
+  // their own/seeded subset from the user-scoped hydrate).
+  const [kitchens, setKitchens] = React.useState(() => listKitchens().filter((k) => k.is_listed));
+  React.useEffect(() => {
+    if (isLive()) dataApi.kitchens().then((d) => setKitchens((d.kitchens as typeof kitchens).filter((k) => k.is_listed))).catch(() => {});
+  }, []);
   const [step, setStep] = React.useState(0);
 
   const [biz, setBiz] = React.useState({

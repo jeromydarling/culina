@@ -1,6 +1,7 @@
 import { type Env, json, error } from '../lib/http';
 import { authenticate } from '../auth';
 import { uuid } from '../lib/crypto';
+import { sendEmail } from '../email';
 import { PLATFORM_FEE_PERCENT } from '@culina/shared';
 
 const enc = new TextEncoder();
@@ -181,6 +182,13 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
           if (tenant) {
             await env.DB.prepare('INSERT INTO notifications (id, user_id, title, body, type, is_read, action_url, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)')
               .bind(uuid(), tenant, 'New order!', 'You received a paid storefront order.', 'order', '/tenant/products', new Date().toISOString()).run();
+          }
+          // Confirmation email to the customer (no-op without RESEND_API_KEY).
+          const custEmail = obj.customer_details?.email;
+          if (custEmail) {
+            const total = obj.amount_total ? `$${(obj.amount_total / 100).toFixed(2)}` : '';
+            await sendEmail(env, custEmail, 'Your Culina order is confirmed 🎉',
+              `<p>Thanks for your order${total ? ` of ${total}` : ''}!</p><p>The maker has been notified and will follow up about pickup or delivery. We appreciate you supporting a small food business.</p>`);
           }
         }
         break;

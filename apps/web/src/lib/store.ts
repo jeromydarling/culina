@@ -101,7 +101,9 @@ export const ensureOperatorKitchen = (operatorId: string, name: string): typeof 
   if (existing) return existing;
   const now = new Date().toISOString();
   const created = {
-    id: genId('k'), operator_id: operatorId, name, slug: `kitchen-${operatorId.slice(0, 8)}`,
+    // Deterministic id keyed to the operator → if a prior persist failed and we
+    // re-create on the next login, the upsert overwrites the same row (no dupes).
+    id: `kit-${operatorId}`, operator_id: operatorId, name, slug: `kitchen-${operatorId.slice(0, 8)}`,
     description: null, address: null, city: null, state: null, zip: null, phone: null, email: null,
     website: null, logo_url: null, cover_image_url: null, amenities: [] as string[], health_permit_number: null,
     stripe_account_id: null, stripe_onboarded: false, monthly_price_cents: 4900, is_listed: false,

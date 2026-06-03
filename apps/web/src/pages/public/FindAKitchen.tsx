@@ -9,14 +9,21 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/misc';
 import { listKitchens } from '@/lib/store';
-import { formatCents } from '@culina/shared';
+import { dataApi } from '@/lib/dataApi';
+import { formatCents, type Kitchen } from '@culina/shared';
 
 const kitchenEmoji = ['🏭', '🥘', '🍽️'];
 
 export default function FindAKitchen() {
   const [params] = useSearchParams();
   const [q, setQ] = React.useState(params.get('q') ?? '');
-  const all = listKitchens().filter((k) => k.is_listed);
+  // The directory is public: fetch all listed kitchens from the API (so it isn't
+  // limited to a logged-in user's own kitchen), falling back to seeded data.
+  const [remote, setRemote] = React.useState<Kitchen[] | null>(null);
+  React.useEffect(() => {
+    dataApi.kitchens().then((d) => setRemote(d.kitchens as Kitchen[])).catch(() => setRemote(null));
+  }, []);
+  const all = (remote ?? listKitchens()).filter((k) => k.is_listed);
 
   const filtered = all.filter((k) => {
     if (!q.trim()) return true;
