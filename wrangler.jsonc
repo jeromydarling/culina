@@ -50,11 +50,9 @@
   ],
 
   // Cloudflare R2 — file storage for documents, logos, and menu images.
-  // Create the bucket once, then uncomment:
-  //   npx wrangler r2 bucket create culina-files
-  // "r2_buckets": [
-  //   { "binding": "STORAGE", "bucket_name": "culina-files" }
-  // ],
+  "r2_buckets": [
+    { "binding": "STORAGE", "bucket_name": "culina-files" }
+  ],
 
   "vars": {
     "ANTHROPIC_MODEL": "claude-3-5-sonnet-20241022",
