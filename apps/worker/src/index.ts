@@ -26,8 +26,16 @@ export default {
       return new Response(null, { headers: corsHeaders(env) });
     }
 
-    if (path === '/api/health' || path === '/') {
-      return json({ ok: true, service: 'culina-api', ai: !!env.ANTHROPIC_API_KEY, images: !!env.AI, stripe: !!env.STRIPE_SECRET_KEY }, env);
+    // Non-API requests are served by the static-asset binding (the React SPA).
+    // In the unified deployment Cloudflare routes only /api/* to the Worker
+    // (run_worker_first), but we handle the fallback here too for safety.
+    if (!path.startsWith('/api/')) {
+      if (env.ASSETS) return env.ASSETS.fetch(request);
+      return error('Not found', env, 404);
+    }
+
+    if (path === '/api/health') {
+      return json({ ok: true, service: 'culina', ai: !!env.ANTHROPIC_API_KEY, images: !!env.AI, stripe: !!env.STRIPE_SECRET_KEY }, env);
     }
 
     // Flux image generation (Workers AI)

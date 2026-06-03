@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Single Worker that serves the React SPA (static assets) AND the /api/*
+  // routes (Claude proxy, Flux images, Stripe). Cloudflare Workers Builds picks
+  // this up from the repo root and deploys on every push to main — no dashboard
+  // configuration needed. `run_worker_first` lets the Worker handle /api/*;
+  // everything else is proxied to the ASSETS binding (with SPA fallback).
+  "name": "culina",
+  "main": "apps/worker/src/index.ts",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "build": {
+    "command": "npm run build"
+  },
+
+  "assets": {
+    "directory": "apps/web/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+
+  "ai": {
+    "binding": "AI"
+  },
+
+  "vars": {
+    "ANTHROPIC_MODEL": "claude-3-5-sonnet-20241022",
+    "STRIPE_PLATFORM_FEE_PERCENT": "1.5",
+    "ALLOWED_ORIGIN": "*"
+  }
+}

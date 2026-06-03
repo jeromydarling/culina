@@ -15,4 +15,9 @@ export const supabase: SupabaseClient | null = isDemoMode
       auth: { persistSession: true, autoRefreshToken: true },
     });
 
-export const API_URL = (import.meta.env.VITE_API_URL as string) || 'http://localhost:8787';
+// In production the API is served from the same origin (one unified Worker), so
+// a relative path works. In dev we point at a locally-running worker; if it's
+// not running, the AI/Flux clients fall back to demo responses gracefully.
+export const API_URL =
+  (import.meta.env.VITE_API_URL as string | undefined) ??
+  (import.meta.env.DEV ? 'http://localhost:8787' : '');

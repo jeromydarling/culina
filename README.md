@@ -66,18 +66,39 @@ npm run dev:worker   # API on http://localhost:8787       (optional)
 Open the app, click **Log in**, and pick **Operator**, **Maker**, or **Admin**
 to explore — no credentials needed in demo mode.
 
-### Going live
+For a full local run including the API on the same origin (Worker + SPA + AI/Flux):
+
+```bash
+npm run preview      # builds the SPA and serves it + /api/* via wrangler dev
+```
+
+### Deploy & get a public URL
+
+The whole app — React SPA **and** the `/api/*` Worker (Claude proxy, Flux image
+generation, Stripe) — deploys as **one Cloudflare Worker** described by the
+root [`wrangler.jsonc`](./wrangler.jsonc). You get a public URL two ways:
+
+- **Workers Builds (recommended, zero-touch):** in the Cloudflare dashboard,
+  *Workers & Pages → Create → connect to Git → select `jeromydarling/culina`*.
+  Cloudflare reads `wrangler.jsonc`, runs `npm run build`, and deploys on every
+  push to `main`. You get **`culina.<your-subdomain>.workers.dev`** (or a custom
+  domain). No build settings to configure — it's a monorepo-aware config file.
+- **One-off / CI:** `npm run deploy` locally, or the included GitHub Action
+  (`.github/workflows/deploy.yml`) with `CLOUDFLARE_API_TOKEN` +
+  `CLOUDFLARE_ACCOUNT_ID` repo secrets.
+
+### Going live (services)
 
 1. **Supabase:** create a project, run `supabase/migrations/*.sql` then
    `seed.sql`. Set `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (web) — the app
    automatically leaves demo mode once these are present.
-2. **Worker secrets:** `wrangler secret put ANTHROPIC_API_KEY` (and
+2. **Workers AI (Flux):** already enabled via the `[ai]` binding — no key needed.
+3. **Worker secrets:** `wrangler secret put ANTHROPIC_API_KEY` (and
    `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`).
-3. **Deploy:** Cloudflare Pages builds the web app (`npm run build:web`, output
-   `apps/web/dist`); `npm run build:worker` / `wrangler deploy` (or the GitHub
-   Action) ships the API.
 
-See `.env.example` and `apps/worker/.dev.vars.example` for the full variable list.
+Because the SPA and API share one origin in production, the frontend calls
+`/api/*` relatively — no `VITE_API_URL` needed. See `.env.example` and
+`apps/worker/.dev.vars.example` for the full variable list.
 
 ## 🔑 Demo accounts (when wired to Supabase)
 

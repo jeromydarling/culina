@@ -13,11 +13,16 @@
     "build": "npm run build --workspace packages/shared && npm run build --workspace apps/web",
     "build:web": "npm run build --workspace apps/web",
     "build:worker": "npm run build --workspace apps/worker",
+    "deploy": "wrangler deploy",
+    "preview": "npm run build && wrangler dev",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "wrangler": "^3.114.0"
   },
   "license": "MIT"
 }

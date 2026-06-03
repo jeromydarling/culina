@@ -1,4 +1,5 @@
 export interface Env {
+  ASSETS?: { fetch: (request: Request) => Promise<Response> };
   AI?: { run: (model: string, input: Record<string, unknown>) => Promise<unknown> };
   ANTHROPIC_API_KEY?: string;
   ANTHROPIC_MODEL?: string;
