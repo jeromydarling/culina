@@ -53,7 +53,19 @@ export const dataApi = {
     req<{ booking: any }>(`bookings/${id}`, { method: 'POST', body: JSON.stringify(patch) }),
   errors: () => req<{ errors: any[] }>('errors'),
   exportUrl: () => `${API_URL}/api/account/export`,
-  deleteAccount: () => req<{ ok: boolean }>('../account/delete', { method: 'POST' }),
+  async deleteAccount(): Promise<{ ok: boolean }> {
+    const res = await fetch(`${API_URL}/api/account/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) },
+    });
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    if (!res.ok) {
+      const err = new Error(data.error ?? `Account deletion failed (${res.status})`);
+      if (res.status >= 500) reportError(err, { path: 'account/delete' });
+      throw err;
+    }
+    return { ok: !!data.ok };
+  },
 };
 
 // ─── Optimistic concurrency (no silent lost updates) ────────────────────────
