@@ -1,13 +1,15 @@
 import { Outlet } from 'react-router-dom';
-import { LayoutDashboard, Building2, Users, Wallet, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, Wallet, BookOpen, DollarSign, Globe } from 'lucide-react';
 import { DashboardLayout, type NavItem } from '@/components/layout/DashboardLayout';
 
 const nav: NavItem[] = [
   { to: '/admin', label: 'Platform Overview', icon: LayoutDashboard },
+  { to: '/admin/revenue', label: 'Revenue', icon: DollarSign },
   { to: '/admin/kitchens', label: 'Kitchens', icon: Building2 },
   { to: '/admin/users', label: 'Users', icon: Users },
   { to: '/admin/grants', label: 'Grants', icon: Wallet },
   { to: '/admin/content', label: 'Learning Content', icon: BookOpen },
+  { to: '/admin/white-label', label: 'White-label', icon: Globe },
 ];
 
 export default function AdminLayout() {

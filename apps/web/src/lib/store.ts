@@ -16,7 +16,12 @@ import type {
   CommunityPost,
   MentorRequest,
   EmailSubscriber,
+  ReferralPartner,
+  MarketplaceTransaction,
+  WhiteLabelConfig,
+  Profile,
 } from '@culina/shared';
+import { MARKETPLACE_COMMISSION_PERCENT } from '@culina/shared';
 import { computeCogs, feeBreakdown } from '@culina/shared';
 import * as seed from './mockData';
 import { genId } from './utils';
@@ -52,6 +57,9 @@ const state = {
   classifieds: [...seed.classifieds],
   communityPosts: [...seed.communityPosts],
   emailSubscribers: [...seed.emailSubscribers],
+  referralPartners: [...seed.referralPartners],
+  marketplaceTransactions: [...seed.marketplaceTransactions],
+  whiteLabelConfigs: [...seed.whiteLabelConfigs],
 };
 
 export const IDS = seed.IDS;
@@ -542,5 +550,86 @@ export const createCommunityPost = (p: { kitchen_id: string; author_id: string; 
     id: genId('cp'), kind: 'post', created_at: new Date().toISOString(), ...p,
   } as CommunityPost;
   state.communityPosts.push(created);
+  return created;
+};
+
+// ─── Revenue model ──────────────────────────────────────────────────────
+export const listReferralPartners = () => state.referralPartners;
+export const listMarketplaceTransactions = (kitchenId?: string) =>
+  state.marketplaceTransactions.filter((t) => !kitchenId || t.kitchen_id === kitchenId);
+export const listWhiteLabelConfigs = () => state.whiteLabelConfigs;
+export const upsertWhiteLabelConfig = (c: Partial<WhiteLabelConfig> & { org_name: string; brand_name: string }): WhiteLabelConfig => {
+  if (c.id) {
+    const existing = state.whiteLabelConfigs.find((x) => x.id === c.id);
+    if (existing) { Object.assign(existing, c); return existing; }
+  }
+  const created: WhiteLabelConfig = {
+    id: genId('wl'), primary_color: '#2D4A3E', logo_url: null, custom_domain: null,
+    plan: 'pilot', is_active: true, created_at: new Date().toISOString(), ...c,
+  } as WhiteLabelConfig;
+  state.whiteLabelConfigs.push(created);
+  return created;
+};
+
+/** Record a peer-to-peer marketplace sale and take Culina's commission. */
+export const sellClassified = (id: string): MarketplaceTransaction | null => {
+  const c = state.classifieds.find((x) => x.id === id);
+  if (!c) return null;
+  c.status = 'closed';
+  const amount = c.price_cents ?? 0;
+  const tx: MarketplaceTransaction = {
+    id: genId('mt'),
+    kitchen_id: c.kitchen_id,
+    classified_id: c.id,
+    description: c.title,
+    amount_cents: amount,
+    commission_cents: Math.round(amount * (MARKETPLACE_COMMISSION_PERCENT / 100)),
+    created_at: new Date().toISOString(),
+  };
+  state.marketplaceTransactions.unshift(tx);
+  return tx;
+};
+
+// ─── Tenant import (operator onboarding) ────────────────────────────────
+export interface ImportTenantRow {
+  business_name: string;
+  full_name?: string;
+  email: string;
+  business_type?: string;
+  plan?: string;
+  status?: string;
+}
+
+/** Bulk-create tenants (profiles + tenant_profiles + memberships) from an import. */
+export const importTenants = (kitchenId: string, rows: ImportTenantRow[]): number => {
+  let created = 0;
+  for (const row of rows) {
+    if (!row.email) continue;
+    if (state.profiles.some((p) => p.email.toLowerCase() === row.email.toLowerCase())) continue;
+    const id = genId('imp');
+    const now = new Date().toISOString();
+    const profile: Profile = {
+      id, email: row.email, full_name: row.full_name ?? row.business_name ?? row.email,
+      role: 'tenant', avatar_url: null, phone: null, created_at: now,
+    };
+    state.profiles.push(profile);
+    state.tenantProfiles.push({
+      id: genId('tp'), tenant_id: id, business_name: row.business_name ?? row.full_name ?? row.email,
+      business_slug: (row.business_name ?? 'maker').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + id.slice(-4),
+      business_type: row.business_type ?? null, description: null, logo_url: null, banner_url: null,
+      instagram_url: null, facebook_url: null, website_url: null, stripe_account_id: null, stripe_onboarded: false,
+      ein: null, legal_entity_type: null, state_of_formation: null, annual_revenue_estimate: null,
+      years_in_operation: null, graduation_target_date: null, created_at: now, updated_at: now,
+    });
+    const membershipType = (row.plan ?? '').toLowerCase().includes('month') ? 'monthly' : 'hourly';
+    const status = (['active', 'pending', 'suspended', 'graduated'] as const).find((s) => s === (row.status ?? '').toLowerCase()) ?? 'active';
+    state.memberships.push({
+      id: genId('m'), kitchen_id: kitchenId, tenant_id: id, status, membership_type: membershipType as 'monthly' | 'hourly',
+      monthly_hours_included: membershipType === 'monthly' ? 40 : null, hourly_overage_rate_cents: null,
+      start_date: now.slice(0, 10), end_date: null, stripe_subscription_id: null,
+      notes: 'Imported during onboarding.', created_at: now, updated_at: now,
+    });
+    created += 1;
+  }
   return created;
 };

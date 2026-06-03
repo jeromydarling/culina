@@ -24,6 +24,9 @@ import type {
   Classified,
   CommunityPost,
   EmailSubscriber,
+  ReferralPartner,
+  MarketplaceTransaction,
+  WhiteLabelConfig,
 } from '@culina/shared';
 import { computeCogs, feeBreakdown } from '@culina/shared';
 
@@ -372,6 +375,21 @@ export const communityPosts: CommunityPost[] = [
 export const emailSubscribers: EmailSubscriber[] = [
   { id: 'es_1', tenant_id: IDS.sara, email: 'fan1@example.com', name: 'Jordan', source: 'storefront', created_at: iso(addDays(-20)) },
   { id: 'es_2', tenant_id: IDS.sara, email: 'fan2@example.com', name: null, source: 'market', created_at: iso(addDays(-10)) },
+];
+
+export const referralPartners: ReferralPartner[] = [
+  { id: 'rp_1', name: 'Local CDFI Fund', partner_type: 'cdfi', description: 'Community development loans for underserved food makers in MN/WI/IA.', url: 'https://example.org/cdfi', revenue_share_percent: 2 },
+  { id: 'rp_2', name: 'FLIP Food Liability Insurance', partner_type: 'insurer', description: 'Affordable product-liability insurance for shared-kitchen tenants.', url: 'https://www.fliprogram.com', revenue_share_percent: 10 },
+  { id: 'rp_3', name: 'Kiva Microfunds', partner_type: 'lender', description: '0% interest crowdfunded microloans up to $15k.', url: 'https://kiva.org', revenue_share_percent: 0 },
+  { id: 'rp_4', name: 'Hot Bread Kitchen', partner_type: 'grantor', description: 'Grants + mentorship for women food entrepreneurs.', url: 'https://hotbreadkitchen.org', revenue_share_percent: 0 },
+];
+
+export const marketplaceTransactions: MarketplaceTransaction[] = [
+  { id: 'mt_1', kitchen_id: IDS.kitchen, classified_id: 'cl_1', description: 'Surplus organic bread flour (50 lb)', amount_cents: 3500, commission_cents: 175, created_at: iso(addDays(-1)) },
+];
+
+export const whiteLabelConfigs: WhiteLabelConfig[] = [
+  { id: 'wl_1', org_name: 'University Food Innovation Center', brand_name: 'HarvestHub', primary_color: '#6D28D9', logo_url: null, custom_domain: 'kitchen.universityfoodlab.edu', plan: 'pilot', is_active: true, created_at: iso(addDays(-45)) },
 ];
 
 export const notifications: Notification[] = [

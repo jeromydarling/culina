@@ -16,8 +16,9 @@ import {
   listClassifieds,
   createClassified,
   closeClassified,
+  sellClassified,
 } from '@/lib/store';
-import { formatCents } from '@culina/shared';
+import { formatCents, MARKETPLACE_COMMISSION_PERCENT } from '@culina/shared';
 import type { Classified } from '@culina/shared';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -122,7 +123,11 @@ export default function Community() {
                     <span className="text-xs text-muted-foreground">{author?.business_name ?? 'Maker'}</span>
                   </div>
                   {mine ? (
-                    <Button size="sm" variant="ghost" className="mt-3" onClick={() => { closeClassified(c.id); force(); toast.success('Listing closed'); }}>Close listing</Button>
+                    c.listing_type === 'offer' && c.price_cents ? (
+                      <Button size="sm" variant="outline" className="mt-3" onClick={() => { const tx = sellClassified(c.id); force(); toast.success(`Sold! Culina fee ${formatCents(tx?.commission_cents ?? 0)} (${MARKETPLACE_COMMISSION_PERCENT}%)`); }}>Mark sold ({MARKETPLACE_COMMISSION_PERCENT}% fee)</Button>
+                    ) : (
+                      <Button size="sm" variant="ghost" className="mt-3" onClick={() => { closeClassified(c.id); force(); toast.success('Listing closed'); }}>Close listing</Button>
+                    )
                   ) : (
                     <Button size="sm" variant="outline" className="mt-3" onClick={() => toast.success('Message sent to the maker (demo)')}>Contact maker</Button>
                   )}

@@ -13,6 +13,7 @@ import {
   KanbanSquare,
   KeyRound,
   Network,
+  Plug,
 } from 'lucide-react';
 import { DashboardLayout, type NavItem } from '@/components/layout/DashboardLayout';
 
@@ -29,6 +30,7 @@ const nav: NavItem[] = [
   { to: '/operator/analytics', label: 'Analytics', icon: LineChart },
   { to: '/operator/network', label: 'Peer Network', icon: Network },
   { to: '/operator/stripe-connect', label: 'Payments', icon: CreditCard },
+  { to: '/operator/integrations', label: 'Integrations', icon: Plug },
   { to: '/operator/settings', label: 'Settings', icon: Settings },
 ];
 

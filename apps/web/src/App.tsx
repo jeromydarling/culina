@@ -31,6 +31,8 @@ const OperatorAccess = lazy(() => import('@/pages/operator/AccessControl'));
 const OperatorNetwork = lazy(() => import('@/pages/operator/PeerNetwork'));
 const OperatorSettings = lazy(() => import('@/pages/operator/Settings'));
 const OperatorStripe = lazy(() => import('@/pages/operator/StripeConnect'));
+const OperatorIntegrations = lazy(() => import('@/pages/operator/Integrations'));
+const OperatorOnboarding = lazy(() => import('@/pages/operator/Onboarding'));
 
 const TenantLayout = lazy(() => import('@/pages/tenant/TenantLayout'));
 const TenantHome = lazy(() => import('@/pages/tenant/Home'));
@@ -51,10 +53,12 @@ const TenantStripe = lazy(() => import('@/pages/tenant/StripeConnect'));
 
 const AdminLayout = lazy(() => import('@/pages/admin/AdminLayout'));
 const AdminOverview = lazy(() => import('@/pages/admin/Overview'));
+const AdminRevenue = lazy(() => import('@/pages/admin/Revenue'));
 const AdminKitchens = lazy(() => import('@/pages/admin/Kitchens'));
 const AdminUsers = lazy(() => import('@/pages/admin/Users'));
 const AdminGrants = lazy(() => import('@/pages/admin/Grants'));
 const AdminContent = lazy(() => import('@/pages/admin/Content'));
+const AdminWhiteLabel = lazy(() => import('@/pages/admin/WhiteLabel'));
 
 function RouteFallback() {
   return (
@@ -105,6 +109,8 @@ export default function App() {
           <Route path="network" element={<OperatorNetwork />} />
           <Route path="settings" element={<OperatorSettings />} />
           <Route path="stripe-connect" element={<OperatorStripe />} />
+          <Route path="integrations" element={<OperatorIntegrations />} />
+          <Route path="onboarding" element={<OperatorOnboarding />} />
         </Route>
 
         {/* Tenant */}
@@ -147,10 +153,12 @@ export default function App() {
           }
         >
           <Route index element={<AdminOverview />} />
+          <Route path="revenue" element={<AdminRevenue />} />
           <Route path="kitchens" element={<AdminKitchens />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="grants" element={<AdminGrants />} />
           <Route path="content" element={<AdminContent />} />
+          <Route path="white-label" element={<AdminWhiteLabel />} />
           <Route path="analytics" element={<AdminOverview />} />
         </Route>
 

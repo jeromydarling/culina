@@ -284,6 +284,32 @@ CREATE TABLE IF NOT EXISTS community_posts (
   body TEXT NOT NULL, created_at TEXT NOT NULL
 );
 
+-- Revenue model
+CREATE TABLE IF NOT EXISTS marketplace_transactions (
+  id TEXT PRIMARY KEY,
+  kitchen_id TEXT, classified_id TEXT,
+  description TEXT NOT NULL, amount_cents INTEGER NOT NULL,
+  commission_cents INTEGER NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS referral_partners (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  partner_type TEXT CHECK (partner_type IN ('cdfi','lender','insurer','grantor')),
+  description TEXT, url TEXT, revenue_share_percent REAL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS white_label_configs (
+  id TEXT PRIMARY KEY,
+  org_name TEXT NOT NULL, brand_name TEXT NOT NULL,
+  primary_color TEXT DEFAULT '#2D4A3E', logo_url TEXT, custom_domain TEXT,
+  plan TEXT CHECK (plan IN ('pilot','standard','enterprise')) DEFAULT 'pilot',
+  is_active INTEGER DEFAULT 1, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS integrations (
+  id TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL, provider TEXT NOT NULL,
+  connected INTEGER DEFAULT 0, metadata TEXT, created_at TEXT NOT NULL
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_kitchens_operator ON kitchens(operator_id);
 CREATE INDEX IF NOT EXISTS idx_spaces_kitchen ON kitchen_spaces(kitchen_id);

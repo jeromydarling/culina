@@ -3,6 +3,24 @@
 /** The platform transaction fee Culina takes on bookings & storefront sales. */
 export const PLATFORM_FEE_PERCENT = 1.5;
 
+/** Commission Culina takes on peer-to-peer marketplace transactions. */
+export const MARKETPLACE_COMMISSION_PERCENT = 5;
+
+/** Referral fee share Culina earns when a tenant is funded via a partner. */
+export const GRANT_REFERRAL_FEE_PERCENT = 2;
+
+/** Monthly price for a white-label license (universities, municipalities, nonprofits). */
+export const WHITE_LABEL_PRICE_CENTS = 49900;
+
+export const REVENUE_STREAMS = [
+  { id: 'transaction', label: 'Transaction fees', desc: '1.5% on bookings & storefront sales' },
+  { id: 'subscription', label: 'Operator subscriptions', desc: '$19–$199 / mo per kitchen' },
+  { id: 'tenant_pro', label: 'Maker Pro', desc: '$9 / mo premium tools' },
+  { id: 'marketplace', label: 'Marketplace commissions', desc: '5% on peer-to-peer + co-packing' },
+  { id: 'referral', label: 'Grant & capital referrals', desc: 'Revenue share with CDFI / lenders' },
+  { id: 'white_label', label: 'White-label licensing', desc: '$499 / mo branded platform' },
+] as const;
+
 export const BRAND = {
   name: 'Culina',
   tagline: 'Where food businesses are born and grow',

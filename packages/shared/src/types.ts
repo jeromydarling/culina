@@ -493,6 +493,38 @@ export interface CommunityPost {
   created_at: string;
 }
 
+// ─── Revenue model ──────────────────────────────────────────────────────
+export interface MarketplaceTransaction {
+  id: string;
+  kitchen_id: string | null;
+  classified_id: string | null;
+  description: string;
+  amount_cents: number;
+  commission_cents: number;
+  created_at: string;
+}
+
+export interface ReferralPartner {
+  id: string;
+  name: string;
+  partner_type: 'cdfi' | 'lender' | 'insurer' | 'grantor';
+  description: string;
+  url: string | null;
+  revenue_share_percent: number;
+}
+
+export interface WhiteLabelConfig {
+  id: string;
+  org_name: string;
+  brand_name: string;
+  primary_color: string;
+  logo_url: string | null;
+  custom_domain: string | null;
+  plan: 'pilot' | 'standard' | 'enterprise';
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface Notification {
   id: string;
   user_id: string;

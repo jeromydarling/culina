@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Input, Select } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { listGrants, getTenantProfile } from '@/lib/store';
+import { listGrants, getTenantProfile, listReferralPartners } from '@/lib/store';
 import { callAI } from '@/lib/ai';
 import type { Grant } from '@culina/shared';
 import { format } from 'date-fns';
@@ -61,9 +61,25 @@ export default function Grants() {
     setLoading(false);
   }
 
+  const partners = listReferralPartners();
+
   return (
     <div>
       <PageHeader title="Grant Finder" description="Funding for food entrepreneurs — federal, state, foundation, and loans." />
+
+      <div className="mb-6 rounded-xl border border-accent/30 bg-accent/5 p-5">
+        <h2 className="font-heading font-semibold">Get matched with a funding partner</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Culina works with lenders, CDFIs, and insurers who fund makers like you. Introductions are free.</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {partners.map((p) => (
+            <div key={p.id} className="flex flex-col rounded-lg border bg-card p-4">
+              <div className="text-sm font-medium">{p.name}</div>
+              <div className="mt-1 flex-1 text-xs text-muted-foreground">{p.description}</div>
+              <Button size="sm" variant="outline" className="mt-3" onClick={() => toast.success(`Intro requested to ${p.name} (demo)`)}>Request intro</Button>
+            </div>
+          ))}
+        </div>
+      </div>
 
       <div className="mb-4 flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">

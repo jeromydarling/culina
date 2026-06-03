@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Users, DollarSign, CalendarClock, AlertTriangle, Plus, UserPlus, FileText } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { GettingStarted } from '@/components/GettingStarted';
 import { PageHeader, StatCard } from '@/components/ui/misc';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,6 +50,8 @@ export default function Overview() {
           </>
         }
       />
+
+      <GettingStarted />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Active tenants" value={String(activeTenants)} icon={Users} hint={`${memberships.length} total`} />
