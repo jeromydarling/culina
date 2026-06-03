@@ -32,7 +32,7 @@ const cols = [
     title: 'Company',
     links: [
       { to: '/about', label: 'Our mission' },
-      { to: '/about', label: 'Why we exist' },
+      { to: '/privacy', label: 'Privacy & data' },
       { to: '/auth/login', label: 'Log in' },
     ],
   },

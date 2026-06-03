@@ -8,6 +8,7 @@ import { Input, Label } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/misc';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+import { notifyError } from '@/lib/errors';
 import { takeSignupPrefill } from '@/lib/signupPrefill';
 import type { UserRole } from '@culina/shared';
 
@@ -34,7 +35,7 @@ export default function Signup() {
     setLoading(true);
     const { error } = await signup(form.email, form.password, role, form.name, form.business);
     setLoading(false);
-    if (error) return toast.error(error);
+    if (error) return notifyError(new Error(error), { action: 'signup' });
     toast.success('Welcome to Culina!');
     navigate(role === 'operator' ? '/operator' : '/tenant');
   }

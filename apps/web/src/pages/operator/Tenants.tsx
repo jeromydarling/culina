@@ -11,6 +11,7 @@ import { Badge, statusVariant } from '@/components/ui/badge';
 import { getKitchenByOperator, listMemberships, getTenantProfile, getProfile } from '@/lib/store';
 import { dataApi, type TenantRow } from '@/lib/dataApi';
 import { isLive } from '@/lib/config';
+import { notifyError } from '@/lib/errors';
 import { formatCents } from '@culina/shared';
 import { format } from 'date-fns';
 
@@ -42,7 +43,7 @@ export default function Tenants() {
     dataApi
       .bootstrap()
       .then((d) => setRows(d.tenants))
-      .catch((e) => toast.error(e.message))
+      .catch((e) => notifyError(e, { action: 'loadTenants' }))
       .finally(() => setLoading(false));
   }, [kitchen]);
 

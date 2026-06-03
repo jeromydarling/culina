@@ -20,6 +20,7 @@ import {
 } from '@/lib/store';
 import { dataApi } from '@/lib/dataApi';
 import { isLive } from '@/lib/config';
+import { notifyError } from '@/lib/errors';
 import { formatCents, feeBreakdown } from '@culina/shared';
 import { addDays, startOfWeek, format, isSameDay } from 'date-fns';
 
@@ -64,7 +65,7 @@ export default function Calendar() {
         const { booking } = await dataApi.createBooking(payload);
         addBookingLocal(booking);
       } catch (err) {
-        return toast.error((err as Error).message);
+        return notifyError(err, { action: 'createBooking' });
       }
     } else {
       createBooking({ kitchen_id: kitchen.id, ...payload });

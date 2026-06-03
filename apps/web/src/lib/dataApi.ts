@@ -1,5 +1,6 @@
 import { API_URL } from './config';
 import { getToken } from './authApi';
+import { reportError } from './telemetry';
 import type { ImportTenantRow } from './store';
 
 export interface TenantRow {
@@ -24,36 +25,72 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
       ...(init?.headers ?? {}),
     },
   });
-  const data = (await res.json()) as T & { error?: string };
-  if (!res.ok) throw new Error((data as { error?: string }).error ?? `Request failed (${res.status})`);
+  const data = (await res.json().catch(() => ({}))) as T & { error?: string };
+  if (!res.ok) {
+    const err = new Error((data as { error?: string }).error ?? `Request failed (${res.status})`);
+    if (res.status >= 500) reportError(err, { path });
+    throw err;
+  }
   return data;
 }
 
 export const dataApi = {
   bootstrap: () => req<{ kitchen: Record<string, unknown> | null; tenants: TenantRow[] }>('bootstrap'),
-  hydrate: () => req<Record<string, unknown[]>>('hydrate'),
-  storefront: (slug: string) =>
-    req<{ profile: any; site: any; products: any[] }>(`storefront/${encodeURIComponent(slug)}`),
+  hydrate: async () => {
+    const data = await req<Record<string, any[]>>('hydrate');
+    // Seed revision tokens so write-through can detect concurrent edits.
+    for (const arr of Object.values(data)) {
+      if (Array.isArray(arr)) for (const row of arr) if (row?.id && row?.updated_at) serverRev[row.id] = row.updated_at;
+    }
+    return data;
+  },
+  storefront: (slug: string) => req<{ profile: any; site: any; products: any[] }>(`storefront/${encodeURIComponent(slug)}`),
   importTenants: (rows: ImportTenantRow[]) =>
     req<{ imported: number }>('tenants/import', { method: 'POST', body: JSON.stringify({ rows }) }),
   createBooking: (input: { space_id: string; start_time: string; end_time: string; equipment_ids?: string[]; notes?: string; tenant_id?: string }) =>
     req<{ booking: any }>('bookings', { method: 'POST', body: JSON.stringify(input) }),
+  errors: () => req<{ errors: any[] }>('errors'),
+  exportUrl: () => `${API_URL}/api/account/export`,
+  deleteAccount: () => req<{ ok: boolean }>('../account/delete', { method: 'POST' }),
 };
 
+// ─── Optimistic concurrency (no silent lost updates) ────────────────────────
+const serverRev: Record<string, string> = {}; // row id → last-known server updated_at
+let conflictHandler: (() => void) | null = null;
+export function setConflictHandler(fn: () => void) {
+  conflictHandler = fn;
+}
+
 /**
- * Write-through persistence. Called by the in-memory store after a mutation
- * when running in LIVE mode; a no-op otherwise. Fire-and-forget — failures are
- * logged but don't block the optimistic UI update.
+ * Write-through persistence. Sends the row + the revision the client last saw;
+ * if the server's row is newer (someone else edited it) the server returns 409,
+ * and we trigger a reconcile so the user sees the latest instead of clobbering.
  */
-export function persist(table: string, row: Record<string, unknown>): void {
-  void req('upsert', { method: 'POST', body: JSON.stringify({ table, row }) }).catch((e) =>
-    console.warn(`persist(${table}) failed:`, e.message),
-  );
+export async function persist(table: string, row: Record<string, unknown>): Promise<void> {
+  try {
+    const res = await fetch(`${API_URL}/api/data/upsert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) },
+      body: JSON.stringify({ table, row, base_updated_at: serverRev[row.id as string] }),
+    });
+    if (res.status === 409) {
+      conflictHandler?.();
+      return;
+    }
+    if (!res.ok) {
+      reportError(new Error(`persist ${table} failed (${res.status})`));
+      return;
+    }
+    const data = (await res.json().catch(() => ({}))) as { updated_at?: string };
+    if (data.updated_at && row.id) serverRev[row.id as string] = data.updated_at;
+  } catch (e) {
+    reportError(e, { op: 'persist', table });
+  }
 }
 
 export function removeRemote(table: string, id: string): void {
-  void req(`${table}/${id}`, { method: 'DELETE' }).catch((e) =>
-    console.warn(`delete(${table}) failed:`, e.message),
-  );
+  void fetch(`${API_URL}/api/data/${table}/${id}`, {
+    method: 'DELETE',
+    headers: { ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) },
+  }).catch((e) => reportError(e, { op: 'delete', table }));
 }
-

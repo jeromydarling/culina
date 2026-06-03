@@ -195,6 +195,12 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     return json(out, env);
   }
 
+  // Admin: recent captured errors (observability)
+  if (path === 'errors' && request.method === 'GET') {
+    if (profile.role !== 'admin') return error('Forbidden', env, 403);
+    return json({ errors: await all(env, 'SELECT * FROM error_logs ORDER BY created_at DESC LIMIT 100') }, env);
+  }
+
   if (path === 'bootstrap' && request.method === 'GET') {
     const kitchen = toApp('kitchens', await db.prepare('SELECT * FROM kitchens WHERE operator_id = ? LIMIT 1').bind(profile.id).first());
     if (!kitchen) return json({ kitchen: null, tenants: [] }, env);
@@ -268,18 +274,37 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     return json({ booking: toApp('bookings', created) }, env);
   }
 
-  // ── Generic upsert (authorized + money-recomputed) ────────────────────
+  // ── Generic upsert (authorized + money-recomputed + conflict-safe) ────
   if (path === 'upsert' && request.method === 'POST') {
     const body: any = await request.json().catch(() => ({}));
-    const { table, row } = body;
+    const { table, row, base_updated_at } = body;
     if (!WRITABLE.has(table) || !row?.id) return error('Invalid upsert', env, 400);
+
+    const existing = await db.prepare(`SELECT * FROM ${table} WHERE id = ?`).bind(row.id).first<any>();
+    // Authorize against both the current row (no hijacking) and the new state.
+    if (existing && !(await canWrite(env, profile, table, existing))) return error('Forbidden', env, 403);
     if (!(await canWrite(env, profile, table, row))) return error('Forbidden', env, 403);
+
     recomputeMoney(table, row);
     const data = toDb(table, row);
+    const guarded = 'updated_at' in data;
+
+    // Optimistic concurrency: reject if the row changed since the client loaded it.
+    if (existing && guarded && base_updated_at && existing.updated_at && existing.updated_at > base_updated_at) {
+      return json({ error: 'conflict', current: toApp(table, existing), updated_at: existing.updated_at }, env, 409);
+    }
+    const now = new Date().toISOString();
+    if (guarded) data.updated_at = now;
+
+    // Partial merge: only the provided columns are written (preserves the rest).
     const cols = Object.keys(data);
     const placeholders = cols.map(() => '?').join(',');
-    await db.prepare(`INSERT OR REPLACE INTO ${table} (${cols.join(',')}) VALUES (${placeholders})`).bind(...cols.map((c) => data[c])).run();
-    return json({ ok: true }, env);
+    const setClause = cols.filter((c) => c !== 'id').map((c) => `${c} = excluded.${c}`).join(', ');
+    const sql = setClause
+      ? `INSERT INTO ${table} (${cols.join(',')}) VALUES (${placeholders}) ON CONFLICT(id) DO UPDATE SET ${setClause}`
+      : `INSERT OR IGNORE INTO ${table} (${cols.join(',')}) VALUES (${placeholders})`;
+    await db.prepare(sql).bind(...cols.map((c) => data[c])).run();
+    return json({ ok: true, updated_at: guarded ? now : undefined }, env);
   }
 
   // ── Bulk import (onboarding) ──────────────────────────────────────────

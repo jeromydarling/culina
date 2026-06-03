@@ -16,6 +16,7 @@ import {
 } from '@/lib/store';
 import { dataApi } from '@/lib/dataApi';
 import { isLive } from '@/lib/config';
+import { notifyError } from '@/lib/errors';
 import { formatCents, feeBreakdown, SPACE_TYPE_LABELS } from '@culina/shared';
 import { format } from 'date-fns';
 
@@ -56,7 +57,7 @@ export default function Book() {
         addBookingLocal(booking);
         toast.success('Booking confirmed! A calendar invite is on its way.');
       } catch (err) {
-        toast.error((err as Error).message);
+        notifyError(err, { action: 'createBooking' });
       }
     } else {
       createBooking({ kitchen_id: kitchenId, tenant_id: profile!.id, ...payload });

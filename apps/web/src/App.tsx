@@ -9,6 +9,7 @@ import About from '@/pages/public/About';
 import FindAKitchen from '@/pages/public/FindAKitchen';
 import KitchenProfile from '@/pages/public/KitchenProfile';
 import Storefront from '@/pages/public/Storefront';
+import Privacy from '@/pages/public/Privacy';
 import NotFound from '@/pages/public/NotFound';
 import Login from '@/pages/auth/Login';
 import Signup from '@/pages/auth/Signup';
@@ -60,6 +61,7 @@ const AdminUsers = lazy(() => import('@/pages/admin/Users'));
 const AdminGrants = lazy(() => import('@/pages/admin/Grants'));
 const AdminContent = lazy(() => import('@/pages/admin/Content'));
 const AdminWhiteLabel = lazy(() => import('@/pages/admin/WhiteLabel'));
+const AdminErrors = lazy(() => import('@/pages/admin/Errors'));
 
 function RouteFallback() {
   return (
@@ -79,6 +81,7 @@ export default function App() {
         <Route path="/find-a-kitchen" element={<FindAKitchen />} />
         <Route path="/kitchen/:slug" element={<KitchenProfile />} />
         <Route path="/shop/:slug" element={<Storefront />} />
+      <Route path="/privacy" element={<Privacy />} />
 
         {/* Auth */}
         <Route path="/auth/login" element={<Login />} />
@@ -161,6 +164,7 @@ export default function App() {
           <Route path="grants" element={<AdminGrants />} />
           <Route path="content" element={<AdminContent />} />
           <Route path="white-label" element={<AdminWhiteLabel />} />
+          <Route path="errors" element={<AdminErrors />} />
           <Route path="analytics" element={<AdminOverview />} />
         </Route>
 

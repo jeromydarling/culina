@@ -4,6 +4,8 @@ import { handleImage } from './ai/image';
 import { handleStripe } from './stripe';
 import { handleAuth, authenticate } from './auth';
 import { handleData } from './data';
+import { handleTelemetry, logError } from './telemetry';
+import { handleAccountExport, handleAccountDelete } from './account';
 import { checkAiQuota } from './lib/ratelimit';
 import { runComplianceSweep, runMonthlyInvoicing } from './cron';
 import { handleUpload, handleFile } from './storage';
@@ -24,6 +26,28 @@ import { handleUpload, handleFile } from './storage';
  */
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    try {
+      return await route(request, env);
+    } catch (e) {
+      // Last-resort handler: log with an incident id, return a friendly error.
+      const incident = await logError(env, 'server', (e as Error).message, { stack: (e as Error).stack, url: request.url });
+      return json({ error: 'Something went wrong on our end. Our team has been notified.', incident }, env, 500);
+    }
+  },
+
+  // Scheduled tasks (see [triggers].crons in wrangler.jsonc):
+  //  - daily  "0 13 * * *"  → compliance sweep
+  //  - monthly "0 6 1 * *"  → auto-generate invoices from the prior month
+  async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    if (event.cron === '0 6 1 * *') {
+      ctx.waitUntil(runMonthlyInvoicing(env).then((r) => console.log('monthly invoicing', r)));
+    } else {
+      ctx.waitUntil(runComplianceSweep(env).then((r) => console.log('compliance sweep', r)));
+    }
+  },
+};
+
+async function route(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
 
@@ -32,12 +56,18 @@ export default {
     }
 
     // Non-API requests are served by the static-asset binding (the React SPA).
-    // In the unified deployment Cloudflare routes only /api/* to the Worker
-    // (run_worker_first), but we handle the fallback here too for safety.
     if (!path.startsWith('/api/')) {
       if (env.ASSETS) return env.ASSETS.fetch(request);
       return error('Not found', env, 404);
     }
+
+    // Telemetry sink (client error reports)
+    if (path === '/api/telemetry/error' && request.method === 'POST') {
+      return handleTelemetry(request, env);
+    }
+    // Account data export / deletion (GDPR)
+    if (path === '/api/account/export' && request.method === 'GET') return handleAccountExport(request, env);
+    if (path === '/api/account/delete' && request.method === 'POST') return handleAccountDelete(request, env);
 
     if (path === '/api/health') {
       return json({ ok: true, service: 'culina', ai: !!env.ANTHROPIC_API_KEY, images: !!env.AI, db: !!env.DB, storage: !!env.STORAGE, stripe: !!env.STRIPE_SECRET_KEY }, env);
@@ -85,16 +115,4 @@ export default {
     }
 
     return error('Not found', env, 404);
-  },
-
-  // Scheduled tasks (see [triggers].crons in wrangler.jsonc):
-  //  - daily  "0 13 * * *"  → compliance sweep
-  //  - monthly "0 6 1 * *"  → auto-generate invoices from the prior month
-  async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    if (event.cron === '0 6 1 * *') {
-      ctx.waitUntil(runMonthlyInvoicing(env).then((r) => console.log('monthly invoicing', r)));
-    } else {
-      ctx.waitUntil(runComplianceSweep(env).then((r) => console.log('compliance sweep', r)));
-    }
-  },
-};
+}

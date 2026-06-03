@@ -27,6 +27,11 @@
     "binding": "AI"
   },
 
+  // Built-in logs/observability for the Worker.
+  "observability": {
+    "enabled": true
+  },
+
   // Scheduled jobs: daily compliance sweep + monthly auto-invoicing.
   "triggers": {
     "crons": ["0 13 * * *", "0 6 1 * *"]

@@ -1,8 +1,9 @@
 import * as React from 'react';
+import { toast } from 'sonner';
 import type { Profile, UserRole } from '@culina/shared';
 import { isLive, isDemo, setSessionMode, clearSessionMode } from '@/lib/config';
 import { authApi, getToken, setToken, clearToken } from '@/lib/authApi';
-import { dataApi } from '@/lib/dataApi';
+import { dataApi, setConflictHandler } from '@/lib/dataApi';
 import { getProfile, hydrate, ensureOperatorKitchen, ensureTenantProfile, updateKitchen, getKitchenByOperator, IDS } from '@/lib/store';
 
 interface AuthState {
@@ -49,6 +50,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = React.useState<Profile | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [, force] = React.useReducer((x) => x + 1, 0);
+  const profileRef = React.useRef<Profile | null>(null);
+  profileRef.current = profile;
+
+  // When the server reports a concurrent edit (409), reconcile to the latest
+  // instead of silently overwriting someone else's change.
+  React.useEffect(() => {
+    setConflictHandler(async () => {
+      await hydrateFromApi(profileRef.current);
+      force();
+      toast.info('Refreshed to the latest — another session made a change.');
+    });
+  }, []);
 
   React.useEffect(() => {
     let active = true;

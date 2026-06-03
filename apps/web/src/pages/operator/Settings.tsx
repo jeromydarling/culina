@@ -8,6 +8,7 @@ import { Input, Label, Textarea } from '@/components/ui/input';
 import { SmartImage } from '@/components/SmartImage';
 import { AiImageButton } from '@/components/AiImageButton';
 import { getKitchenByOperator, updateKitchen } from '@/lib/store';
+import { PrivacyData } from '@/components/PrivacyData';
 
 export default function Settings() {
   const { profile } = useAuth();
@@ -73,6 +74,7 @@ export default function Settings() {
         <div className="lg:col-span-2">
           <Button type="submit">Save changes</Button>
         </div>
+        <div className="lg:col-span-2"><PrivacyData /></div>
       </form>
     </div>
   );

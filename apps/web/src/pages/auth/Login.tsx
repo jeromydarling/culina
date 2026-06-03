@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/misc';
 import { useAuth, roleForEmail } from '@/context/AuthContext';
+import { notifyError } from '@/lib/errors';
 import type { UserRole } from '@culina/shared';
 
 export default function Login() {
@@ -23,7 +24,7 @@ export default function Login() {
     setLoading(true);
     const { error } = await login(email, password);
     setLoading(false);
-    if (error) return toast.error(error);
+    if (error) return notifyError(new Error(error), { action: 'login' });
     navigate(homeFor(roleForEmail(email)));
   }
 

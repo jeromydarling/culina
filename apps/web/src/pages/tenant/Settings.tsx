@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { getTenantProfile, updateTenantProfile } from '@/lib/store';
+import { PrivacyData } from '@/components/PrivacyData';
 
 export default function Settings() {
   const { profile } = useAuth();
@@ -48,6 +49,7 @@ export default function Settings() {
         </Card>
 
         <div className="lg:col-span-2"><Button type="submit">Save changes</Button></div>
+        <div className="lg:col-span-2"><PrivacyData /></div>
       </form>
     </div>
   );
