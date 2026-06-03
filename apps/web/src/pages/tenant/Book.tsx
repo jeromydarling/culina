@@ -36,7 +36,8 @@ export default function Book() {
   const [equip, setEquip] = React.useState<string[]>([]);
 
   const space = spaces.find((s) => s.id === spaceId);
-  const hours = Math.max(1, Number(end.split(':')[0]) - Number(start.split(':')[0]));
+  const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
+  const hours = Math.max(1, (toMin(end) - toMin(start)) / 60); // matches the server's minute-accurate pricing
   const equipRate = equip.reduce((s, id) => s + (equipment.find((e) => e.id === id)?.hourly_rate_cents ?? 0), 0);
   const subtotal = Math.round(((space?.hourly_rate_cents ?? 0) + equipRate) * hours);
   const fb = feeBreakdown(subtotal);

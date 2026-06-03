@@ -81,8 +81,10 @@ export async function callAI(endpoint: string, body: unknown, demoFallback: stri
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`AI request failed: ${res.status}`);
-    const data = (await res.json()) as { text?: string };
-    return data.text ?? demoFallback;
+    const data = (await res.json()) as { text?: string; demo?: boolean };
+    // The worker returns { text: '', demo: true } when no ANTHROPIC_API_KEY is
+    // configured — fall back to the canned response (don't render blank).
+    return data.demo || !data.text?.trim() ? demoFallback : data.text;
   } catch {
     // Simulate latency for a realistic demo experience.
     await new Promise((r) => setTimeout(r, 900));

@@ -44,7 +44,8 @@ export default function Calendar() {
   // form state
   const [form, setForm] = React.useState({ tenant_id: memberships[0]?.tenant_id ?? '', space_id: spaces[0]?.id ?? '', date: format(new Date(), 'yyyy-MM-dd'), start: '08:00', end: '12:00', equipment: [] as string[], notes: '' });
 
-  const hours = Math.max(1, (Number(form.end.split(':')[0]) - Number(form.start.split(':')[0])));
+  const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
+  const hours = Math.max(1, (toMin(form.end) - toMin(form.start)) / 60); // matches server minute-accurate pricing
   const space = spaces.find((s) => s.id === form.space_id);
   const equipRate = form.equipment.reduce((s, id) => s + (equipment.find((e) => e.id === id)?.hourly_rate_cents ?? 0), 0);
   const subtotal = Math.round(((space?.hourly_rate_cents ?? 0) + equipRate) * hours);
