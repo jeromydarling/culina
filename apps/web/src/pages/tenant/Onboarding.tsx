@@ -13,6 +13,8 @@ import { Spinner } from '@/components/ui/misc';
 import { cn } from '@/lib/utils';
 import { getTenantProfile, updateTenantProfile, getMembershipForTenant, getKitchenBySlug, listKitchens } from '@/lib/store';
 import { completeStep, markWelcomed, type OnboardingStepId } from '@/lib/onboarding';
+import { uploadFile } from '@/lib/upload';
+import { notifyError } from '@/lib/errors';
 import { callAI } from '@/lib/ai';
 
 const STEPS = ['Welcome', 'Your business', 'Join a kitchen', 'Get compliant', 'Launch', 'Done'];
@@ -156,7 +158,7 @@ export default function Onboarding() {
               {['Food handler certification', 'Liability insurance (COI)', 'Business license', 'Health permit'].map((d) => (
                 <div key={d} className="flex items-center justify-between rounded-lg border p-3 text-sm">
                   <span className="flex items-center gap-2"><FileCheck2 className="h-4 w-4 text-primary" /> {d}</span>
-                  <Button size="sm" variant="outline" onClick={() => { completeStep(profile!.id, 't_docs'); toast.success(`${d} uploaded (demo)`); }}>Upload</Button>
+                  <DocUpload label={d} onDone={() => completeStep(profile!.id, 't_docs')} />
                 </div>
               ))}
             </div>
@@ -196,5 +198,33 @@ export default function Onboarding() {
         </CardContent></Card>
       )}
     </div>
+  );
+}
+
+/** Compact per-row file uploader for the compliance step (real R2 upload). */
+function DocUpload({ label, onDone }: { label: string; onDone: () => void }) {
+  const ref = React.useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [done, setDone] = React.useState(false);
+  async function handle(file?: File | null) {
+    if (!file) return;
+    setBusy(true);
+    try {
+      await uploadFile(file);
+      setDone(true);
+      onDone();
+      toast.success(`${label} uploaded`);
+    } catch (e) {
+      notifyError(e, { action: 'uploadDoc' });
+    }
+    setBusy(false);
+  }
+  return (
+    <>
+      <input ref={ref} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => handle(e.target.files?.[0])} />
+      <Button size="sm" variant={done ? 'ghost' : 'outline'} disabled={busy} onClick={() => ref.current?.click()}>
+        {busy ? 'Uploading…' : done ? '✓ Uploaded' : 'Upload'}
+      </Button>
+    </>
   );
 }

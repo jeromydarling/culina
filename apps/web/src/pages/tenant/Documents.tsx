@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Input, Label, Select } from '@/components/ui/input';
 import { Badge, statusVariant } from '@/components/ui/badge';
+import { FileDrop } from '@/components/FileDrop';
 import { listComplianceForTenant, getMembershipForTenant, addComplianceDoc } from '@/lib/store';
 import { DOC_TYPES, DOC_TYPE_LABELS } from '@culina/shared';
 import type { DocType } from '@culina/shared';
@@ -19,18 +20,21 @@ export default function Documents() {
   const force = useForceUpdate();
   const docs = listComplianceForTenant(profile!.id);
   const [open, setOpen] = React.useState(false);
-  const [form, setForm] = React.useState<{ doc_type: DocType; doc_name: string; expiration_date: string }>({ doc_type: 'food_handler_cert', doc_name: '', expiration_date: '' });
+  const [form, setForm] = React.useState<{ doc_type: DocType; doc_name: string; expiration_date: string; file_url: string }>({ doc_type: 'food_handler_cert', doc_name: '', expiration_date: '', file_url: '' });
 
   function upload(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.file_url) return toast.error('Please add a file first.');
     addComplianceDoc({
       tenant_id: profile!.id,
       kitchen_id: membership?.kitchen_id ?? '',
       membership_id: membership?.id ?? null,
       doc_type: form.doc_type,
       doc_name: form.doc_name || DOC_TYPE_LABELS[form.doc_type],
+      file_url: form.file_url,
       expiration_date: form.expiration_date || null,
     });
+    setForm({ doc_type: 'food_handler_cert', doc_name: '', expiration_date: '', file_url: '' });
     setOpen(false);
     force();
     toast.success('Document uploaded — pending operator review.');
@@ -66,7 +70,10 @@ export default function Documents() {
           </div>
           <div><Label>File name</Label><Input value={form.doc_name} onChange={(e) => setForm({ ...form, doc_name: e.target.value })} placeholder="e.g. ServSafe 2026.pdf" /></div>
           <div><Label>Expiration date</Label><Input type="date" value={form.expiration_date} onChange={(e) => setForm({ ...form, expiration_date: e.target.value })} /></div>
-          <div className="rounded-lg border border-dashed bg-muted/40 p-6 text-center text-sm text-muted-foreground"><Upload className="mx-auto mb-2 h-6 w-6" /> Drop a file here (demo — no upload needed)</div>
+          <div>
+            <Label>File</Label>
+            <FileDrop className="mt-1" accept="image/*,application/pdf" onUploaded={(url, file) => setForm((f) => ({ ...f, file_url: url, doc_name: f.doc_name || file.name }))} />
+          </div>
           <Button type="submit" className="w-full">Upload</Button>
         </form>
       </Modal>

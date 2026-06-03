@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/misc';
 import { SmartImage } from '@/components/SmartImage';
+import { FileDrop } from '@/components/FileDrop';
 import { cn } from '@/lib/utils';
 import { generateImage, type ImageStyle } from '@/lib/ai';
 
@@ -105,6 +106,12 @@ export function ImageStudio({
             </div>
           </div>
         )}
+
+        {/* Upload your own */}
+        <div>
+          <Label>…or upload your own photo</Label>
+          <FileDrop className="mt-1" accept="image/*" label="Drag a photo here, or click to upload" onUploaded={(url) => { setVariations((v) => [url, ...v].slice(0, 8)); setSelected(url); }} />
+        </div>
 
         {/* Manual URL */}
         <div>
