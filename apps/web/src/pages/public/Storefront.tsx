@@ -1,0 +1,174 @@
+import * as React from 'react';
+import { useParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import { Minus, Plus, ShoppingBag, X } from 'lucide-react';
+import { SmartImage } from '@/components/SmartImage';
+import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
+import { Input, Label } from '@/components/ui/input';
+import { getTenantProfileBySlug, getTenantSiteBySlug, getTenantSite, listPublicProducts } from '@/lib/store';
+import { formatCents, feeBreakdown } from '@culina/shared';
+
+const productEmoji = ['🥖', '🧁', '🥯', '🍪', '🥐', '🍞'];
+
+export default function Storefront() {
+  const { slug } = useParams();
+  const profile = slug ? getTenantProfileBySlug(slug) : null;
+  const site = slug ? getTenantSiteBySlug(slug) ?? (profile ? getTenantSite(profile.tenant_id) : null) : null;
+  const products = profile ? listPublicProducts(profile.tenant_id) : [];
+
+  const [cart, setCart] = React.useState<Record<string, number>>({});
+  const [cartOpen, setCartOpen] = React.useState(false);
+  const [checkout, setCheckout] = React.useState(false);
+
+  if (!profile) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-muted/40 p-6 text-center">
+        <div>
+          <h1 className="font-heading text-2xl font-bold">Storefront not found</h1>
+          <p className="mt-2 text-muted-foreground">This shop may be unpublished.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const primary = site?.color_primary ?? '#2D4A3E';
+  const secondary = site?.color_secondary ?? '#F5E6C8';
+
+  const cartItems = Object.entries(cart)
+    .map(([id, qty]) => ({ product: products.find((p) => p.id === id)!, qty }))
+    .filter((x) => x.product);
+  const subtotal = cartItems.reduce((s, x) => s + x.product.price_cents * x.qty, 0);
+  const fb = feeBreakdown(subtotal);
+  const count = cartItems.reduce((s, x) => s + x.qty, 0);
+
+  const add = (id: string) => setCart((c) => ({ ...c, [id]: (c[id] ?? 0) + 1 }));
+  const sub = (id: string) =>
+    setCart((c) => {
+      const next = { ...c };
+      if ((next[id] ?? 0) <= 1) delete next[id];
+      else next[id] -= 1;
+      return next;
+    });
+
+  function placeOrder(e: React.FormEvent) {
+    e.preventDefault();
+    setCheckout(false);
+    setCartOpen(false);
+    setCart({});
+    toast.success('Order placed! A confirmation email is on its way. (Demo)');
+  }
+
+  return (
+    <div className="min-h-screen" style={{ background: secondary + '40', fontFamily: site?.font_body }}>
+      {/* nav */}
+      <header className="sticky top-0 z-40 border-b bg-white/90 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+          <span className="font-heading text-xl font-bold" style={{ color: primary }}>{profile.business_name}</span>
+          <button onClick={() => setCartOpen(true)} className="relative rounded-full p-2 hover:bg-muted">
+            <ShoppingBag className="h-5 w-5" style={{ color: primary }} />
+            {count > 0 && <span className="absolute -right-0.5 -top-0.5 grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold text-white" style={{ background: primary }}>{count}</span>}
+          </button>
+        </div>
+      </header>
+
+      {/* hero */}
+      <section className="relative overflow-hidden" style={{ background: primary }}>
+        <div className="mx-auto grid max-w-5xl items-center gap-8 px-4 py-16 sm:grid-cols-2">
+          <div className="text-white">
+            <h1 className="font-heading text-4xl font-bold sm:text-5xl">{site?.hero_headline ?? profile.business_name}</h1>
+            <p className="mt-4 text-lg text-white/85">{site?.hero_subheadline ?? profile.description}</p>
+          </div>
+          <div className="h-56 overflow-hidden rounded-2xl shadow-xl">
+            <SmartImage src={site?.hero_image_url ?? undefined} alt={profile.business_name ?? 'Storefront'} emoji="🥖" gradient="from-amber-700 via-amber-600 to-yellow-500" className="h-full w-full" />
+          </div>
+        </div>
+      </section>
+
+      {/* products */}
+      <section className="mx-auto max-w-5xl px-4 py-14">
+        <h2 className="font-heading text-2xl font-bold" style={{ color: primary }}>Shop</h2>
+        <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {products.map((p, i) => (
+            <div key={p.id} className="flex flex-col overflow-hidden rounded-2xl border bg-white shadow-card">
+              <div className="h-44 overflow-hidden">
+                <SmartImage src={p.images[0]} alt={p.name} emoji={productEmoji[i % productEmoji.length]} gradient="from-amber-600 via-orange-500 to-yellow-400" className="h-full w-full" />
+              </div>
+              <div className="flex flex-1 flex-col p-5">
+                <h3 className="font-heading font-semibold">{p.name}</h3>
+                <p className="mt-1 flex-1 text-sm text-muted-foreground">{p.description}</p>
+                {p.allergens.length > 0 && <div className="mt-2 text-xs text-muted-foreground">Contains: {p.allergens.join(', ')}</div>}
+                <div className="mt-3 flex items-center justify-between">
+                  <div className="font-semibold" style={{ color: primary }}>
+                    {formatCents(p.price_cents)}
+                    {p.compare_at_price_cents && <span className="ml-1 text-xs text-muted-foreground line-through">{formatCents(p.compare_at_price_cents)}</span>}
+                  </div>
+                  <Button size="sm" onClick={() => add(p.id)} style={{ background: primary }}>Add</Button>
+                </div>
+                {p.is_subscription_eligible && <div className="mt-2 text-xs font-medium" style={{ color: primary }}>↻ Subscribe & save ({p.subscription_interval})</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* about */}
+      {site?.show_about && site.about_text && (
+        <section className="bg-white py-14">
+          <div className="mx-auto max-w-3xl px-4 text-center">
+            <h2 className="font-heading text-2xl font-bold" style={{ color: primary }}>Our story</h2>
+            <p className="mt-4 text-muted-foreground">{site.about_text}</p>
+          </div>
+        </section>
+      )}
+
+      <footer className="py-10 text-center text-sm text-muted-foreground">
+        <p>{profile.business_name} · Powered by Culina</p>
+      </footer>
+
+      {/* cart drawer */}
+      <Modal open={cartOpen} onClose={() => setCartOpen(false)} title="Your cart">
+        {cartItems.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">Your cart is empty.</p>
+        ) : (
+          <>
+            <div className="space-y-3">
+              {cartItems.map((x) => (
+                <div key={x.product.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{x.product.name}</div>
+                    <div className="text-xs text-muted-foreground">{formatCents(x.product.price_cents)} each</div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => sub(x.product.id)} className="rounded border p-1"><Minus className="h-3 w-3" /></button>
+                    <span className="w-6 text-center text-sm">{x.qty}</span>
+                    <button onClick={() => add(x.product.id)} className="rounded border p-1"><Plus className="h-3 w-3" /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 space-y-1 border-t pt-4 text-sm">
+              <div className="flex justify-between"><span>Subtotal</span><span>{formatCents(fb.subtotalCents)}</span></div>
+              <div className="flex justify-between text-muted-foreground"><span>Culina platform fee ({fb.feePercent}%)</span><span>{formatCents(fb.platformFeeCents)}</span></div>
+              <div className="flex justify-between font-semibold"><span>Total</span><span>{formatCents(fb.totalCents)}</span></div>
+            </div>
+            <Button className="mt-4 w-full" onClick={() => { setCartOpen(false); setCheckout(true); }} style={{ background: primary }}>Checkout</Button>
+          </>
+        )}
+      </Modal>
+
+      {/* checkout */}
+      <Modal open={checkout} onClose={() => setCheckout(false)} title="Checkout" description="Secure payment via Stripe (demo)">
+        <form onSubmit={placeOrder} className="space-y-3">
+          <div><Label>Name</Label><Input required /></div>
+          <div><Label>Email</Label><Input required type="email" /></div>
+          <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+            <div className="flex justify-between"><span>Total due</span><span className="font-semibold">{formatCents(fb.totalCents)}</span></div>
+            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground"><X className="h-3 w-3" /> No card charged in demo mode</div>
+          </div>
+          <Button type="submit" className="w-full" style={{ background: primary }}>Pay {formatCents(fb.totalCents)}</Button>
+        </form>
+      </Modal>
+    </div>
+  );
+}

@@ -1,0 +1,23 @@
+{
+  "name": "culina",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Culina — the all-in-one platform for shared commercial kitchens and the food entrepreneurs inside them.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace apps/web",
+    "dev:worker": "npm run dev --workspace apps/worker",
+    "build": "npm run build --workspace packages/shared && npm run build --workspace apps/web",
+    "build:web": "npm run build --workspace apps/web",
+    "build:worker": "npm run build --workspace apps/worker",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}

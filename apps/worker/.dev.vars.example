@@ -1,0 +1,8 @@
+# Copy to .dev.vars for `wrangler dev`. Never commit real secrets.
+ANTHROPIC_API_KEY=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=hello@culina.app
