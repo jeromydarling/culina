@@ -43,3 +43,63 @@ export async function runComplianceSweep(env: Env): Promise<{ flagged: number; n
   }
   return { flagged: flagged.meta.changes ?? 0, notified };
 }
+
+/**
+ * Monthly invoicing: roll each tenant's confirmed/completed bookings from the
+ * prior calendar month into a single draft invoice per tenant. Idempotent —
+ * skips a tenant if an invoice for that period already exists.
+ */
+export async function runMonthlyInvoicing(env: Env): Promise<{ created: number }> {
+  if (!env.DB) return { created: 0 };
+  const db = env.DB;
+  const now = new Date();
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const periodStart = start.toISOString().slice(0, 10);
+  const periodEnd = new Date(end.getTime() - 864e5).toISOString().slice(0, 10);
+  const monthLabel = start.toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const feePct = Number(env.STRIPE_PLATFORM_FEE_PERCENT ?? 1.5);
+
+  const { results } = await db
+    .prepare(
+      `SELECT kitchen_id, tenant_id, COUNT(*) AS n, SUM(COALESCE(subtotal_cents,0)) AS subtotal
+       FROM bookings
+       WHERE start_time >= ? AND start_time < ? AND status IN ('confirmed','completed')
+       GROUP BY kitchen_id, tenant_id HAVING subtotal > 0`,
+    )
+    .bind(start.toISOString(), end.toISOString())
+    .all();
+
+  let created = 0;
+  for (const r of results as any[]) {
+    const existing = await db
+      .prepare('SELECT id FROM invoices WHERE tenant_id = ? AND kitchen_id = ? AND period_start = ? LIMIT 1')
+      .bind(r.tenant_id, r.kitchen_id, periodStart)
+      .first();
+    if (existing) continue;
+
+    const subtotal = Number(r.subtotal) || 0;
+    const fee = Math.round(subtotal * (feePct / 100));
+    const lineItems = JSON.stringify([
+      { description: `Kitchen bookings — ${monthLabel} (${r.n} sessions)`, qty: 1, unit_price: subtotal / 100, total: subtotal / 100 },
+    ]);
+    const number = `INV-${now.getUTCFullYear()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
+    const due = new Date(now.getTime() + 14 * 864e5).toISOString().slice(0, 10);
+
+    await db
+      .prepare(
+        `INSERT INTO invoices (id, kitchen_id, tenant_id, invoice_number, period_start, period_end,
+          line_items, subtotal_cents, tax_cents, total_cents, platform_fee_cents, status, due_date, notes, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 'draft', ?, ?, ?)`,
+      )
+      .bind(crypto.randomUUID(), r.kitchen_id, r.tenant_id, number, periodStart, periodEnd, lineItems, subtotal, subtotal + fee, fee, due, `Auto-generated from ${monthLabel} bookings.`, new Date().toISOString())
+      .run();
+
+    await db
+      .prepare('INSERT INTO notifications (id, user_id, title, body, type, is_read, action_url, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)')
+      .bind(crypto.randomUUID(), r.tenant_id, 'New invoice ready', `Your ${monthLabel} booking invoice is ready to review.`, 'invoice_due', '/tenant/bookings', new Date().toISOString())
+      .run();
+    created += 1;
+  }
+  return { created };
+}

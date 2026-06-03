@@ -44,6 +44,11 @@ const routes: Record<string, AIRoute> = {
     buildPrompt: (b) => `Context: ${JSON.stringify(b.context || {})}. Question: ${b.question}`,
     maxTokens: 800,
   },
+  'site-edit': {
+    system: `${SYSTEM_BASE} You are an inline website editor for a small food brand's storefront. Given the current site JSON and a plain-language instruction, respond with ONLY minified JSON containing the fields you are CHANGING (a partial). Allowed fields: hero_headline (<=8 words), hero_subheadline (1 sentence), about_text (1-3 sentences), meta_title (<=60 chars), meta_description (<=155 chars), theme (one of warm_artisan|modern_clean|bold_market|rustic_farm|elegant_patisserie), color_primary (hex), color_secondary (hex), show_products (bool), show_about (bool), show_contact (bool), show_social (bool). Never include fields you are not changing. Never invent prices or products.`,
+    buildPrompt: (b) => `Current site: ${JSON.stringify(b.site)}. Instruction: "${b.command}". Return the JSON patch only.`,
+    maxTokens: 500,
+  },
   permitting: {
     system: `${SYSTEM_BASE} You explain permitting steps clearly for a given US state and product type. Number the steps. Note to confirm with the local health authority.`,
     buildPrompt: (b) => `State: ${b.state}. Business/product type: ${b.business_type}. List the permits and licenses typically required and the order to pursue them.`,

@@ -7,19 +7,40 @@ import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Input, Label } from '@/components/ui/input';
 import { getTenantProfileBySlug, getTenantSiteBySlug, getTenantSite, listPublicProducts } from '@/lib/store';
+import { dataApi } from '@/lib/dataApi';
+import { useApi } from '@/lib/config';
+import { Spinner } from '@/components/ui/misc';
+import type { Product, TenantProfile, TenantSite } from '@culina/shared';
 import { formatCents, feeBreakdown } from '@culina/shared';
 
 const productEmoji = ['🥖', '🧁', '🥯', '🍪', '🥐', '🍞'];
 
 export default function Storefront() {
   const { slug } = useParams();
-  const profile = slug ? getTenantProfileBySlug(slug) : null;
-  const site = slug ? getTenantSiteBySlug(slug) ?? (profile ? getTenantSite(profile.tenant_id) : null) : null;
-  const products = profile ? listPublicProducts(profile.tenant_id) : [];
+  // In LIVE mode the public storefront is served from D1 so published edits show.
+  const [remote, setRemote] = React.useState<{ profile: TenantProfile | null; site: TenantSite | null; products: Product[] } | null>(null);
+  const [loading, setLoading] = React.useState(useApi);
+
+  React.useEffect(() => {
+    if (!useApi || !slug) return;
+    dataApi
+      .storefront(slug)
+      .then((d) => setRemote({ profile: d.profile ?? null, site: d.site ?? null, products: d.products ?? [] }))
+      .catch(() => setRemote({ profile: null, site: null, products: [] }))
+      .finally(() => setLoading(false));
+  }, [slug]);
+
+  const profile = useApi ? remote?.profile ?? null : slug ? getTenantProfileBySlug(slug) : null;
+  const site = useApi ? remote?.site ?? null : slug ? getTenantSiteBySlug(slug) ?? (profile ? getTenantSite(profile.tenant_id) : null) : null;
+  const products = useApi ? remote?.products ?? [] : profile ? listPublicProducts(profile.tenant_id) : [];
 
   const [cart, setCart] = React.useState<Record<string, number>>({});
   const [cartOpen, setCartOpen] = React.useState(false);
   const [checkout, setCheckout] = React.useState(false);
+
+  if (loading) {
+    return <div className="grid min-h-screen place-items-center"><Spinner className="h-8 w-8" /></div>;
+  }
 
   if (!profile) {
     return (

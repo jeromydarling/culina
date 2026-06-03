@@ -25,9 +25,9 @@
     "binding": "AI"
   },
 
-  // Daily compliance sweep → notifications + Resend emails.
+  // Scheduled jobs: daily compliance sweep + monthly auto-invoicing.
   "triggers": {
-    "crons": ["0 13 * * *"]
+    "crons": ["0 13 * * *", "0 6 1 * *"]
   },
 
   // Cloudflare D1 (SQLite) — the database (created in this account).

@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useForceUpdate } from '@/lib/hooks';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, ExternalLink, Store } from 'lucide-react';
+import { Plus, Pencil, Trash2, ExternalLink, Store, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { PageHeader, EmptyState } from '@/components/ui/misc';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Modal } from '@/components/ui/modal';
 import { Input, Label, Textarea, Select } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { SmartImage } from '@/components/SmartImage';
-import { AiImageButton } from '@/components/AiImageButton';
+import { ImageStudio } from '@/components/ImageStudio';
 import { listProducts, upsertProduct, deleteProduct, listRecipes, getTenantProfile } from '@/lib/store';
 import { formatCents } from '@culina/shared';
 import type { Product } from '@culina/shared';
@@ -22,6 +22,7 @@ export default function Products() {
   const products = listProducts(profile!.id);
   const recipes = listRecipes(profile!.id);
   const [editing, setEditing] = React.useState<Partial<Product> | null>(null);
+  const [studioOpen, setStudioOpen] = React.useState(false);
 
   function save(e: React.FormEvent) {
     e.preventDefault();
@@ -78,12 +79,9 @@ export default function Products() {
                 <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border">
                   <SmartImage src={editing.images?.[0]} alt={editing.name ?? 'Product'} emoji="🥖" gradient="from-amber-600 to-yellow-400" className="h-full w-full" />
                 </div>
-                <AiImageButton
-                  prompt={`${editing.name ?? ''} ${editing.description ?? ''}`.trim()}
-                  style="product"
-                  label="Generate with Flux"
-                  onGenerated={(url) => setEditing({ ...editing, images: [url, ...(editing.images ?? []).slice(1)] })}
-                />
+                <Button type="button" variant="accent" size="sm" onClick={() => setStudioOpen(true)}>
+                  <ImageIcon className="h-4 w-4" /> Image Studio
+                </Button>
               </div>
             </div>
             <div><Label>Name</Label><Input required value={editing.name ?? ''} onChange={(e) => setEditing({ ...editing, name: e.target.value })} /></div>
@@ -107,6 +105,16 @@ export default function Products() {
           </form>
         )}
       </Modal>
+
+      <ImageStudio
+        open={studioOpen}
+        onClose={() => setStudioOpen(false)}
+        title="Product image studio"
+        promptSeed={`${editing?.name ?? ''} ${editing?.description ?? ''}`.trim() || 'artisan food product'}
+        style="product"
+        current={editing?.images?.[0]}
+        onApply={(url) => setEditing((prev) => (prev ? { ...prev, images: url ? [url] : [] } : prev))}
+      />
     </div>
   );
 }

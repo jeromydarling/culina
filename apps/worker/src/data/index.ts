@@ -66,6 +66,14 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     if (path === 'learning') return json({ learning: (await all(env, 'SELECT * FROM learning_resources')).map((r) => toApp('learning_resources', r)) }, env);
     if (path === 'mentors') return json({ mentors: await all(env, 'SELECT * FROM mentors') }, env);
     if (path === 'kitchens') return json({ kitchens: (await all(env, 'SELECT * FROM kitchens WHERE is_listed = 1')).map((r) => toApp('kitchens', r)) }, env);
+    const sf = path.match(/^storefront\/(.+)$/);
+    if (sf) {
+      const slug = decodeURIComponent(sf[1]);
+      const tp: any = await db.prepare('SELECT * FROM tenant_profiles WHERE business_slug = ?').bind(slug).first();
+      const site = await db.prepare('SELECT * FROM tenant_sites WHERE site_slug = ?').bind(slug).first();
+      const products = tp ? (await all(env, 'SELECT * FROM products WHERE tenant_id = ? AND is_active = 1', tp.tenant_id)).map((r) => toApp('products', r)) : [];
+      return json({ profile: toApp('tenant_profiles', tp), site: toApp('tenant_sites', site), products }, env);
+    }
   }
 
   const profile = await authenticate(request, env);

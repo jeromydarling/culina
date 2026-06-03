@@ -3,14 +3,18 @@ import type { Profile, UserRole } from '@culina/shared';
 import { isDemoMode } from '@/lib/config';
 import { authApi, getToken, setToken, clearToken } from '@/lib/authApi';
 import { dataApi } from '@/lib/dataApi';
-import { getProfile, hydrate, IDS } from '@/lib/store';
+import { getProfile, hydrate, ensureOperatorKitchen, IDS } from '@/lib/store';
 
 /** Pull the user's dataset from D1 into the in-memory store (LIVE mode). */
-async function hydrateFromApi() {
+async function hydrateFromApi(p?: Profile | null) {
   try {
     hydrate(await dataApi.hydrate());
   } catch (e) {
     console.warn('hydrate failed:', (e as Error).message);
+  }
+  // New operators get a starter kitchen so the dashboard is never empty/broken.
+  if (p?.role === 'operator') {
+    ensureOperatorKitchen(p.id, `${(p.full_name ?? 'My').split(' ')[0]}'s Kitchen`);
   }
 }
 
@@ -65,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (getToken()) {
         try {
           const { profile: p } = await authApi.me();
-          await hydrateFromApi();
+          await hydrateFromApi(p);
           if (active) setProfile(p);
         } catch {
           clearToken();
@@ -90,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { token, profile: p } = await authApi.login(demoCreds[role], 'demo1234');
       setToken(token);
-      await hydrateFromApi();
+      await hydrateFromApi(p);
       setProfile(p);
     } catch (e) {
       console.warn('demo login failed:', (e as Error).message);
@@ -107,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const { token, profile: p } = await authApi.login(email, password);
         setToken(token);
-        await hydrateFromApi();
+        await hydrateFromApi(p);
         setProfile(p);
         return {};
       } catch (e) {
@@ -126,6 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const { token, profile: p } = await authApi.signup(email, password, role, fullName);
         setToken(token);
+        await hydrateFromApi(p);
         setProfile(p);
         return {};
       } catch (e) {

@@ -12,21 +12,27 @@
  */
 const RUNTIME_KEY = 'culina_use_api';
 
+/** Explicit per-browser override: 'true' | 'false' | null (use build default). */
 export function setLiveMode(on: boolean) {
-  if (on) localStorage.setItem(RUNTIME_KEY, 'true');
-  else localStorage.removeItem(RUNTIME_KEY);
+  localStorage.setItem(RUNTIME_KEY, on ? 'true' : 'false');
+}
+export function clearLiveModeOverride() {
+  localStorage.removeItem(RUNTIME_KEY);
 }
 
-function runtimeLive(): boolean {
+function override(): boolean | null {
   try {
-    return localStorage.getItem(RUNTIME_KEY) === 'true';
+    const v = localStorage.getItem(RUNTIME_KEY);
+    return v === null ? null : v === 'true';
   } catch {
-    return false;
+    return null;
   }
 }
 
-export const useApi =
-  (import.meta.env.VITE_USE_API as string | undefined) === 'true' || runtimeLive();
+// LIVE (real Cloudflare D1) is the default; a browser override can force Demo.
+const buildDefault = (import.meta.env.VITE_USE_API as string | undefined) !== 'false';
+
+export const useApi = override() ?? buildDefault;
 
 export const isDemoMode = !useApi;
 

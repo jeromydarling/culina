@@ -33,6 +33,46 @@ export async function generateImage(prompt: string, style: ImageStyle = 'dish'):
   }
 }
 
+/**
+ * Turn a natural-language instruction into a partial site patch. Uses the
+ * Worker's Claude proxy; falls back to a small local heuristic so the AI
+ * command bar still does something useful with no backend.
+ */
+export async function editSite(command: string, site: Record<string, unknown>): Promise<Record<string, unknown>> {
+  try {
+    const res = await fetch(`${API_URL}/api/ai/site-edit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command, site }),
+    });
+    if (!res.ok) throw new Error(String(res.status));
+    const data = (await res.json()) as { text?: string };
+    if (data.text) {
+      const match = data.text.match(/\{[\s\S]*\}/);
+      if (match) return JSON.parse(match[0]) as Record<string, unknown>;
+    }
+    throw new Error('no patch');
+  } catch {
+    await new Promise((r) => setTimeout(r, 700));
+    return heuristicEdit(command);
+  }
+}
+
+function heuristicEdit(command: string): Record<string, unknown> {
+  const c = command.toLowerCase();
+  const patch: Record<string, unknown> = {};
+  if (/warm|cozy|earthy|rustic/.test(c)) { patch.color_primary = '#7C5E10'; patch.color_secondary = '#FAF3E0'; patch.theme = 'rustic_farm'; }
+  if (/bold|vibrant|punchy|market/.test(c)) { patch.color_primary = '#B91C1C'; patch.color_secondary = '#FEF3C7'; patch.theme = 'bold_market'; }
+  if (/modern|clean|minimal|sleek/.test(c)) { patch.color_primary = '#111827'; patch.color_secondary = '#F3F4F6'; patch.theme = 'modern_clean'; }
+  if (/elegant|patisserie|refined|luxe/.test(c)) { patch.color_primary = '#5B2333'; patch.color_secondary = '#FCE7EF'; patch.theme = 'elegant_patisserie'; }
+  if (/hide products|no products/.test(c)) patch.show_products = false;
+  if (/hide about/.test(c)) patch.show_about = false;
+  const headline = command.match(/headline (?:to|:)?\s*["“]?([^"”]+)["”]?$/i);
+  if (headline) patch.hero_headline = headline[1].trim();
+  if (Object.keys(patch).length === 0) patch.hero_subheadline = command.trim();
+  return patch;
+}
+
 export async function callAI(endpoint: string, body: unknown, demoFallback: string): Promise<string> {
   try {
     const res = await fetch(`${API_URL}/api/ai/${endpoint}`, {

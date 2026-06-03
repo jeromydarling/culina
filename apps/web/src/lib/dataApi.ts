@@ -32,6 +32,8 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 export const dataApi = {
   bootstrap: () => req<{ kitchen: Record<string, unknown> | null; tenants: TenantRow[] }>('bootstrap'),
   hydrate: () => req<Record<string, unknown[]>>('hydrate'),
+  storefront: (slug: string) =>
+    req<{ profile: any; site: any; products: any[] }>(`storefront/${encodeURIComponent(slug)}`),
   importTenants: (rows: ImportTenantRow[]) =>
     req<{ imported: number }>('tenants/import', { method: 'POST', body: JSON.stringify({ rows }) }),
 };

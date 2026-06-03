@@ -4,7 +4,7 @@ import { handleImage } from './ai/image';
 import { handleStripe } from './stripe';
 import { handleAuth } from './auth';
 import { handleData } from './data';
-import { runComplianceSweep } from './cron';
+import { runComplianceSweep, runMonthlyInvoicing } from './cron';
 import { handleUpload, handleFile } from './storage';
 
 /**
@@ -83,8 +83,14 @@ export default {
     return error('Not found', env, 404);
   },
 
-  // Daily compliance sweep (see [triggers].crons in wrangler.jsonc).
-  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(runComplianceSweep(env).then((r) => console.log('compliance sweep', r)));
+  // Scheduled tasks (see [triggers].crons in wrangler.jsonc):
+  //  - daily  "0 13 * * *"  → compliance sweep
+  //  - monthly "0 6 1 * *"  → auto-generate invoices from the prior month
+  async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    if (event.cron === '0 6 1 * *') {
+      ctx.waitUntil(runMonthlyInvoicing(env).then((r) => console.log('monthly invoicing', r)));
+    } else {
+      ctx.waitUntil(runComplianceSweep(env).then((r) => console.log('compliance sweep', r)));
+    }
   },
 };
