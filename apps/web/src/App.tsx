@@ -50,6 +50,7 @@ const TenantCommunity = lazy(() => import('@/pages/tenant/Community'));
 const TenantTools = lazy(() => import('@/pages/tenant/Tools'));
 const TenantSettings = lazy(() => import('@/pages/tenant/Settings'));
 const TenantStripe = lazy(() => import('@/pages/tenant/StripeConnect'));
+const TenantOnboarding = lazy(() => import('@/pages/tenant/Onboarding'));
 
 const AdminLayout = lazy(() => import('@/pages/admin/AdminLayout'));
 const AdminOverview = lazy(() => import('@/pages/admin/Overview'));
@@ -141,6 +142,7 @@ export default function App() {
           <Route path="tools/:tool" element={<TenantTools />} />
           <Route path="settings" element={<TenantSettings />} />
           <Route path="stripe-connect" element={<TenantStripe />} />
+          <Route path="onboarding" element={<TenantOnboarding />} />
         </Route>
 
         {/* Admin */}

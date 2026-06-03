@@ -3,6 +3,7 @@ import { handleAI } from './ai';
 import { handleImage } from './ai/image';
 import { handleStripe } from './stripe';
 import { handleAuth } from './auth';
+import { handleData } from './data';
 import { handleUpload, handleFile } from './storage';
 
 /**
@@ -44,6 +45,12 @@ export default {
     const authMatch = path.match(/^\/api\/auth\/(.+)$/);
     if (authMatch && (request.method === 'POST' || request.method === 'GET')) {
       return handleAuth(authMatch[1], request, env);
+    }
+
+    // D1 data API
+    const dataMatch = path.match(/^\/api\/data\/(.+)$/);
+    if (dataMatch) {
+      return handleData(dataMatch[1], request, env);
     }
 
     // File storage (R2)

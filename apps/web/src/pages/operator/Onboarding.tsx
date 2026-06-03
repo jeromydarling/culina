@@ -16,6 +16,8 @@ import { getKitchenByOperator, importTenants, createAnnouncement, type ImportTen
 import { PROVIDERS, getConnections, setConnection } from '@/lib/integrations';
 import { completeStep, markWelcomed } from '@/lib/onboarding';
 import { callAI } from '@/lib/ai';
+import { dataApi } from '@/lib/dataApi';
+import { isDemoMode } from '@/lib/config';
 
 const SAMPLE_CSV = `Business Name,Contact,Email,Type,Plan,Status
 Sara's Sourdough,Sara Bakes,sara@example.com,bakery,monthly,active
@@ -83,13 +85,27 @@ export default function Onboarding() {
     setMapLoading(false);
   }
 
-  function runImport() {
+  const [importing, setImporting] = React.useState(false);
+  async function runImport() {
     if (!parsed) return;
-    const n = importTenants(kitchen.id, parsed.rows);
-    setImported(n);
-    completeStep(profile!.id, 'import');
-    toast.success(`Imported ${n} tenant${n !== 1 ? 's' : ''}`);
-    next();
+    setImporting(true);
+    try {
+      let n: number;
+      if (isDemoMode) {
+        n = importTenants(kitchen.id, parsed.rows);
+      } else {
+        // Persist to Cloudflare D1 via the Worker.
+        n = (await dataApi.importTenants(parsed.rows)).imported;
+      }
+      setImported(n);
+      completeStep(profile!.id, 'import');
+      toast.success(`Imported ${n} tenant${n !== 1 ? 's' : ''}${isDemoMode ? '' : ' to D1'}`);
+      next();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setImporting(false);
+    }
   }
 
   function connect(id: string) {
@@ -231,7 +247,7 @@ export default function Onboarding() {
 
           <div className="flex justify-between">
             <Button variant="ghost" onClick={back}><ArrowLeft className="h-4 w-4" /> Back</Button>
-            <Button onClick={runImport} disabled={!parsed?.rows.length}><Database className="h-4 w-4" /> Import {parsed?.rows.length ?? 0} tenants</Button>
+            <Button onClick={runImport} disabled={!parsed?.rows.length || importing}>{importing ? <Spinner className="h-4 w-4 border-white/40 border-t-white" /> : <><Database className="h-4 w-4" /> Import {parsed?.rows.length ?? 0} tenants</>}</Button>
           </div>
         </div>
       )}

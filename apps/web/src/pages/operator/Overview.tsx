@@ -51,7 +51,7 @@ export default function Overview() {
         }
       />
 
-      <GettingStarted />
+      <GettingStarted role="operator" />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Active tenants" value={String(activeTenants)} icon={Users} hint={`${memberships.length} total`} />

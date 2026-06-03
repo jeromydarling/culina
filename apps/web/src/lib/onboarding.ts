@@ -10,7 +10,18 @@ export const ONBOARDING_STEPS = [
   { id: 'promote', label: 'Promote money-makers to tenants (AI website + storefront)', to: '/operator/onboarding' },
 ] as const;
 
-export type OnboardingStepId = (typeof ONBOARDING_STEPS)[number]['id'];
+export const TENANT_ONBOARDING_STEPS = [
+  { id: 't_profile', label: 'Complete your business profile', to: '/tenant/settings' },
+  { id: 't_kitchen', label: 'Join your kitchen', to: '/tenant/onboarding' },
+  { id: 't_docs', label: 'Upload your compliance documents', to: '/tenant/documents' },
+  { id: 't_booking', label: 'Make your first booking', to: '/tenant/book' },
+  { id: 't_recipe', label: 'Cost your first recipe', to: '/tenant/recipes' },
+  { id: 't_storefront', label: 'Build your storefront & AI website', to: '/tenant/storefront' },
+] as const;
+
+export type OnboardingStepId =
+  | (typeof ONBOARDING_STEPS)[number]['id']
+  | (typeof TENANT_ONBOARDING_STEPS)[number]['id'];
 
 const key = (userId: string) => `culina_onboarding_${userId}`;
 const welcomeKey = (userId: string) => `culina_welcomed_${userId}`;
