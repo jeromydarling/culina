@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Input, Label, Select } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { SmartImage } from '@/components/SmartImage';
+import { AiImageButton } from '@/components/AiImageButton';
 import {
   getKitchenByOperator,
   listSpaces,
@@ -41,7 +43,13 @@ export default function Spaces() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {spaces.map((s) => (
-              <div key={s.id} className="rounded-lg border bg-card p-5 shadow-card">
+              <div key={s.id} className="overflow-hidden rounded-lg border bg-card shadow-card">
+                {s.image_url && (
+                  <div className="h-32 w-full overflow-hidden">
+                    <SmartImage src={s.image_url} alt={s.name} emoji="🍳" gradient="from-slate-600 to-emerald-700" className="h-full w-full" />
+                  </div>
+                )}
+                <div className="p-5">
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-semibold">{s.name}</h3>
@@ -54,6 +62,7 @@ export default function Spaces() {
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">{s.description}</p>
                 <div className="mt-3 text-sm font-medium text-primary">{formatCents(s.hourly_rate_cents)}/hr</div>
+                </div>
               </div>
             ))}
           </div>
@@ -100,6 +109,20 @@ export default function Spaces() {
               </Select>
             </div>
             <div><Label>Description</Label><Input value={spaceModal.description ?? ''} onChange={(e) => setSpaceModal({ ...spaceModal, description: e.target.value })} /></div>
+            <div>
+              <Label>Photo</Label>
+              <div className="mt-1 flex items-center gap-3">
+                <div className="h-16 w-24 shrink-0 overflow-hidden rounded-lg border">
+                  <SmartImage src={spaceModal.image_url ?? undefined} alt={spaceModal.name ?? 'Space'} emoji="🍳" gradient="from-slate-600 to-emerald-700" className="h-full w-full" />
+                </div>
+                <AiImageButton
+                  prompt={`${spaceModal.name ?? 'prep station'}, ${spaceModal.description ?? ''}`.trim()}
+                  style="space"
+                  label="Generate with Flux"
+                  onGenerated={(url) => setSpaceModal({ ...spaceModal, image_url: url })}
+                />
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <div><Label>Hourly rate ($)</Label><Input type="number" value={(spaceModal.hourly_rate_cents ?? 0) / 100} onChange={(e) => setSpaceModal({ ...spaceModal, hourly_rate_cents: Math.round(Number(e.target.value) * 100) })} /></div>
               <div><Label>Capacity</Label><Input type="number" value={spaceModal.capacity_persons ?? 1} onChange={(e) => setSpaceModal({ ...spaceModal, capacity_persons: Number(e.target.value) })} /></div>

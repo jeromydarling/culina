@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { SmartImage } from '@/components/SmartImage';
+import { AiImageButton } from '@/components/AiImageButton';
 import { getTenantProfile, getTenantSite, upsertTenantSite, listPublicProducts } from '@/lib/store';
 import { callAI } from '@/lib/ai';
 import type { TenantSite } from '@culina/shared';
@@ -97,6 +98,20 @@ export default function StorefrontEditor() {
           <Card>
             <CardHeader><CardTitle>Content</CardTitle></CardHeader>
             <CardContent className="space-y-3">
+              <div>
+                <Label>Hero image</Label>
+                <div className="mt-1 flex items-center gap-3">
+                  <div className="h-16 w-28 shrink-0 overflow-hidden rounded-lg border">
+                    <SmartImage src={site.hero_image_url ?? undefined} alt="Hero" emoji="🥖" gradient="from-amber-700 to-yellow-500" className="h-full w-full" />
+                  </div>
+                  <AiImageButton
+                    prompt={`${tp.business_name ?? ''}, ${tp.business_type ?? 'artisan food'}, ${vibe}`}
+                    style="storefront"
+                    label="Generate hero"
+                    onGenerated={(url) => set({ hero_image_url: url })}
+                  />
+                </div>
+              </div>
               <div><Label>Hero headline</Label><Input value={site.hero_headline ?? ''} onChange={(e) => set({ hero_headline: e.target.value })} /></div>
               <div><Label>Subheadline</Label><Textarea value={site.hero_subheadline ?? ''} onChange={(e) => set({ hero_subheadline: e.target.value })} /></div>
               <div><Label>About</Label><Textarea rows={4} value={site.about_text ?? ''} onChange={(e) => set({ about_text: e.target.value })} /></div>

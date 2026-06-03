@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/modal';
 import { Input, Label, Textarea, Select } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { SmartImage } from '@/components/SmartImage';
+import { AiImageButton } from '@/components/AiImageButton';
 import { listProducts, upsertProduct, deleteProduct, listRecipes, getTenantProfile } from '@/lib/store';
 import { formatCents } from '@culina/shared';
 import type { Product } from '@culina/shared';
@@ -70,6 +71,20 @@ export default function Products() {
       <Modal open={!!editing} onClose={() => setEditing(null)} title={editing?.id ? 'Edit product' : 'Add product'}>
         {editing && (
           <form onSubmit={save} className="space-y-3">
+            <div>
+              <Label>Product image</Label>
+              <div className="mt-1 flex items-center gap-3">
+                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border">
+                  <SmartImage src={editing.images?.[0]} alt={editing.name ?? 'Product'} emoji="🥖" gradient="from-amber-600 to-yellow-400" className="h-full w-full" />
+                </div>
+                <AiImageButton
+                  prompt={`${editing.name ?? ''} ${editing.description ?? ''}`.trim()}
+                  style="product"
+                  label="Generate with Flux"
+                  onGenerated={(url) => setEditing({ ...editing, images: [url, ...(editing.images ?? []).slice(1)] })}
+                />
+              </div>
+            </div>
             <div><Label>Name</Label><Input required value={editing.name ?? ''} onChange={(e) => setEditing({ ...editing, name: e.target.value })} /></div>
             <div><Label>Description</Label><Textarea value={editing.description ?? ''} onChange={(e) => setEditing({ ...editing, description: e.target.value })} /></div>
             <div className="grid grid-cols-2 gap-2">

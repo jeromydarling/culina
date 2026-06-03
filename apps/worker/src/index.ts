@@ -1,5 +1,6 @@
 import { type Env, corsHeaders, json, error } from './lib/http';
 import { handleAI } from './ai';
+import { handleImage } from './ai/image';
 import { handleStripe } from './stripe';
 
 /**
@@ -26,10 +27,15 @@ export default {
     }
 
     if (path === '/api/health' || path === '/') {
-      return json({ ok: true, service: 'culina-api', ai: !!env.ANTHROPIC_API_KEY, stripe: !!env.STRIPE_SECRET_KEY }, env);
+      return json({ ok: true, service: 'culina-api', ai: !!env.ANTHROPIC_API_KEY, images: !!env.AI, stripe: !!env.STRIPE_SECRET_KEY }, env);
     }
 
-    // AI proxy
+    // Flux image generation (Workers AI)
+    if (path === '/api/ai/generate-image' && request.method === 'POST') {
+      return handleImage(request, env);
+    }
+
+    // AI text proxy (Claude)
     const aiMatch = path.match(/^\/api\/ai\/(.+)$/);
     if (aiMatch && request.method === 'POST') {
       return handleAI(aiMatch[1], request, env);

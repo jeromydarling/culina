@@ -92,12 +92,27 @@ Culina's 1.5% platform fee is computed in one place
 (`packages/shared/src/money.ts`) and shown as an explicit line item everywhere
 money moves — bookings, invoices, storefront checkout. Never hidden.
 
-## 🖼️ Imagery
+## 🖼️ Imagery & AI image generation (Flux)
 
-Marketing/storefront imagery is centralized in `apps/web/src/lib/images.ts`.
-Every image renders through `<SmartImage>`, which falls back to an on-brand
-gradient if a source fails — so dropping your own generated (Flux) assets into
-`apps/web/public/img/` and updating that file is always safe.
+Makers and operators can generate photography on demand with **Flux**
+(`@cf/black-forest-labs/flux-1-schnell`) via **Cloudflare Workers AI** — no API
+key, just the `[ai]` binding in `apps/worker/wrangler.toml`. The `AiImageButton`
+appears in:
+
+- Maker → **Products** (dish / menu / product shots)
+- Maker → **Storefront builder** (hero image)
+- Operator → **Spaces & Equipment** (station photos)
+- Operator → **Settings** (kitchen / menu cover image)
+
+Endpoint: `POST /api/ai/generate-image` `{ prompt, style }` → `{ image: dataUrl }`.
+Prompts are always steered toward appetizing food/kitchen photography with no
+people. In demo mode (no Worker) the button explains how to enable it instead of
+failing.
+
+Static marketing/storefront imagery is centralized in
+`apps/web/src/lib/images.ts`. Every image renders through `<SmartImage>`, which
+falls back to an on-brand gradient if a source fails — so swapping in your own
+assets under `apps/web/public/img/` is always safe.
 
 ---
 

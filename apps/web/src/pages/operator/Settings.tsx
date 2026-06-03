@@ -5,6 +5,8 @@ import { PageHeader } from '@/components/ui/misc';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label, Textarea } from '@/components/ui/input';
+import { SmartImage } from '@/components/SmartImage';
+import { AiImageButton } from '@/components/AiImageButton';
 import { getKitchenByOperator, updateKitchen } from '@/lib/store';
 
 export default function Settings() {
@@ -25,6 +27,23 @@ export default function Settings() {
         <Card>
           <CardHeader><CardTitle>Kitchen profile</CardTitle></CardHeader>
           <CardContent className="space-y-3">
+            <div>
+              <Label>Cover image</Label>
+              <div className="mt-1 overflow-hidden rounded-lg border">
+                <div className="h-28 w-full overflow-hidden">
+                  <SmartImage src={form.cover_image_url ?? undefined} alt={form.name} emoji="🏭" gradient="from-slate-700 via-emerald-900 to-primary" className="h-full w-full" />
+                </div>
+                <div className="flex items-center justify-between gap-2 p-2">
+                  <span className="text-xs text-muted-foreground">Generate a kitchen / menu image with Flux</span>
+                  <AiImageButton
+                    prompt={`${form.name}, ${form.description ?? 'a shared commercial kitchen'}`}
+                    style="kitchen"
+                    label="Generate"
+                    onGenerated={(url) => setForm({ ...form, cover_image_url: url })}
+                  />
+                </div>
+              </div>
+            </div>
             <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
             <div><Label>Description</Label><Textarea rows={3} value={form.description ?? ''} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
             <div className="grid grid-cols-2 gap-2">
