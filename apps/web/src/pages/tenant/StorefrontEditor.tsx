@@ -14,6 +14,7 @@ import { getTenantProfile, getTenantSite, upsertTenantSite, listPublicProducts }
 import { editSite } from '@/lib/ai';
 import type { TenantSite } from '@culina/shared';
 import { formatCents } from '@culina/shared';
+import { thumb } from '@/lib/img';
 
 const themes = [
   { id: 'warm_artisan', name: 'Warm Artisan', primary: '#2D4A3E', secondary: '#F5E6C8' },
@@ -203,7 +204,7 @@ export default function StorefrontEditor() {
                   <div className="mt-3 grid grid-cols-2 gap-3">
                     {products.slice(0, 4).map((p) => (
                       <div key={p.id} className="overflow-hidden rounded-lg border bg-white">
-                        <SmartImage src={p.images[0]} alt={p.name} emoji="🥖" gradient="from-amber-600 to-yellow-400" className="h-24 w-full" />
+                        <SmartImage src={thumb(p.images[0], 400)} alt={p.name} emoji="🥖" gradient="from-amber-600 to-yellow-400" className="h-24 w-full" />
                         <div className="p-2"><div className="text-sm font-medium">{p.name}</div><div className="text-sm" style={{ color: site.color_primary }}>{formatCents(p.price_cents)}</div></div>
                       </div>
                     ))}

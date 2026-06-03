@@ -3,6 +3,7 @@ export interface Env {
   AI?: { run: (model: string, input: Record<string, unknown>) => Promise<unknown> };
   DB?: D1Database;
   STORAGE?: R2Bucket;
+  IMAGES?: unknown; // Cloudflare Images binding (optional; used for thumbnails)
   AUTH_SECRET?: string;
   ANTHROPIC_API_KEY?: string;
   ANTHROPIC_MODEL?: string;

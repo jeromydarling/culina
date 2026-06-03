@@ -1,6 +1,7 @@
 import { API_URL, isLive } from './config';
 import { getToken } from './authApi';
 import { reportError } from './telemetry';
+import { processImage, MAX_UPLOAD_BYTES } from './image';
 
 export interface Uploaded {
   url: string;
@@ -15,7 +16,13 @@ const safeName = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0
  * backend / token) we keep it local with an object URL so the sandbox still
  * shows the file — nothing is persisted.
  */
-export async function uploadFile(file: File): Promise<Uploaded> {
+export async function uploadFile(rawFile: File): Promise<Uploaded> {
+  if (rawFile.size > MAX_UPLOAD_BYTES) {
+    throw new Error(`That file is too large (max ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB).`);
+  }
+  // Shrink/recompress images client-side so R2 only ever holds lean files.
+  const file = await processImage(rawFile);
+
   if (!isLive() || !getToken()) {
     return { url: URL.createObjectURL(file), demo: true };
   }

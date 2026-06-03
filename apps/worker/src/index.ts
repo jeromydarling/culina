@@ -91,7 +91,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     }
     const fileMatch = path.match(/^\/api\/files\/(.+)$/);
     if (fileMatch && request.method === 'GET') {
-      return handleFile(fileMatch[1], env);
+      return handleFile(fileMatch[1], env, request);
     }
 
     // AI + image endpoints: metered per identity to cap spend/abuse.

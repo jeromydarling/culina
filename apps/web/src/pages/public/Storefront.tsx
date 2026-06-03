@@ -10,6 +10,7 @@ import { getTenantProfileBySlug, getTenantSiteBySlug, getTenantSite, listPublicP
 import { dataApi } from '@/lib/dataApi';
 import { startCheckout } from '@/lib/stripeApi';
 import { notifyError } from '@/lib/errors';
+import { thumb } from '@/lib/img';
 import { Spinner } from '@/components/ui/misc';
 import type { Product, TenantProfile, TenantSite } from '@culina/shared';
 import { formatCents, feeBreakdown } from '@culina/shared';
@@ -150,7 +151,7 @@ export default function Storefront() {
           {products.map((p, i) => (
             <div key={p.id} className="flex flex-col overflow-hidden rounded-2xl border bg-white shadow-card">
               <div className="h-44 overflow-hidden">
-                <SmartImage src={p.images[0]} alt={p.name} emoji={productEmoji[i % productEmoji.length]} gradient="from-amber-600 via-orange-500 to-yellow-400" className="h-full w-full" />
+                <SmartImage src={thumb(p.images[0], 600)} alt={p.name} emoji={productEmoji[i % productEmoji.length]} gradient="from-amber-600 via-orange-500 to-yellow-400" className="h-full w-full" />
               </div>
               <div className="flex flex-1 flex-col p-5">
                 <h3 className="font-heading font-semibold">{p.name}</h3>

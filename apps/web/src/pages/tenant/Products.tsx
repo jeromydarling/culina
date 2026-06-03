@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { SmartImage } from '@/components/SmartImage';
 import { ImageStudio } from '@/components/ImageStudio';
 import { listProducts, upsertProduct, deleteProduct, listRecipes, getTenantProfile } from '@/lib/store';
+import { thumb } from '@/lib/img';
 import { formatCents } from '@culina/shared';
 import type { Product } from '@culina/shared';
 
@@ -52,7 +53,7 @@ export default function Products() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {products.map((p) => (
             <div key={p.id} className="overflow-hidden rounded-lg border bg-card shadow-card">
-              <div className="h-36 overflow-hidden"><SmartImage src={p.images[0]} alt={p.name} emoji="🥖" gradient="from-amber-600 via-orange-500 to-yellow-400" className="h-full w-full" /></div>
+              <div className="h-36 overflow-hidden"><SmartImage src={thumb(p.images[0], 400)} alt={p.name} emoji="🥖" gradient="from-amber-600 via-orange-500 to-yellow-400" className="h-full w-full" /></div>
               <div className="p-4">
                 <div className="flex items-start justify-between">
                   <h3 className="font-medium">{p.name}</h3>
