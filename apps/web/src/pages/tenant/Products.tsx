@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useForceUpdate } from '@/lib/hooks';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, ExternalLink, Store } from 'lucide-react';
@@ -17,7 +18,7 @@ import type { Product } from '@culina/shared';
 export default function Products() {
   const { profile } = useAuth();
   const tp = getTenantProfile(profile!.id);
-  const [, force] = React.useReducer((x) => x + 1, 0);
+  const force = useForceUpdate();
   const products = listProducts(profile!.id);
   const recipes = listRecipes(profile!.id);
   const [editing, setEditing] = React.useState<Partial<Product> | null>(null);

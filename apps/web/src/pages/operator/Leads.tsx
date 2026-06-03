@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useForceUpdate } from '@/lib/hooks';
 import { toast } from 'sonner';
 import { Mail, Phone } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -30,7 +31,7 @@ const stageColor: Record<LeadStatus, string> = {
 export default function Leads() {
   const { profile } = useAuth();
   const kitchen = getKitchenByOperator(profile!.id)!;
-  const [, force] = React.useReducer((x) => x + 1, 0);
+  const force = useForceUpdate();
   const leads = listLeads(kitchen.id);
   const [selected, setSelected] = React.useState<Lead | null>(null);
 

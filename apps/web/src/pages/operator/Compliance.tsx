@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useForceUpdate } from '@/lib/hooks';
 import { toast } from 'sonner';
 import { Mail } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -33,7 +34,7 @@ export default function Compliance() {
   const { profile } = useAuth();
   const kitchen = getKitchenByOperator(profile!.id)!;
   const memberships = listMemberships(kitchen.id);
-  const [, force] = React.useReducer((x) => x + 1, 0);
+  const force = useForceUpdate();
   const docs = listComplianceForKitchen(kitchen.id);
   const [editing, setEditing] = React.useState<{ doc: ComplianceDocument } | null>(null);
 

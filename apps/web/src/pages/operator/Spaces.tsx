@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useForceUpdate } from '@/lib/hooks';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -25,7 +26,7 @@ export default function Spaces() {
   const { profile } = useAuth();
   const kitchen = getKitchenByOperator(profile!.id)!;
   const [tab, setTab] = React.useState('spaces');
-  const [, force] = React.useReducer((x) => x + 1, 0);
+  const force = useForceUpdate();
   const spaces = listSpaces(kitchen.id);
   const equipment = listEquipment(kitchen.id);
   const [spaceModal, setSpaceModal] = React.useState<Partial<KitchenSpace> | null>(null);

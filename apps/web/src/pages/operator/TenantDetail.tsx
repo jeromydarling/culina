@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useForceUpdate } from '@/lib/hooks';
 import { useParams, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, GraduationCap, Pause } from 'lucide-react';
@@ -30,7 +31,7 @@ export default function TenantDetail() {
   const p = id ? getProfile(id) : null;
   const [tab, setTab] = React.useState('overview');
   const [notes, setNotes] = React.useState(membership?.notes ?? '');
-  const [, force] = React.useReducer((x) => x + 1, 0);
+  const force = useForceUpdate();
 
   if (!membership || !p) {
     return (

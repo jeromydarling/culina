@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useForceUpdate } from '@/lib/hooks';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { CalendarPlus } from 'lucide-react';
@@ -12,7 +13,7 @@ import { format } from 'date-fns';
 
 export default function Bookings() {
   const { profile } = useAuth();
-  const [, force] = React.useReducer((x) => x + 1, 0);
+  const force = useForceUpdate();
   const bookings = [...listBookings({ tenantId: profile!.id })].sort((a, b) => +new Date(b.start_time) - +new Date(a.start_time));
   const upcoming = bookings.filter((b) => new Date(b.start_time) >= new Date() && b.status !== 'cancelled');
   const past = bookings.filter((b) => !(new Date(b.start_time) >= new Date() && b.status !== 'cancelled'));

@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useForceUpdate } from '@/lib/hooks';
 import { toast } from 'sonner';
 import { Plus, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/misc';
@@ -10,7 +11,7 @@ import { listGrants, upsertGrant, deleteGrant } from '@/lib/store';
 import type { Grant } from '@culina/shared';
 
 export default function Grants() {
-  const [, force] = React.useReducer((x) => x + 1, 0);
+  const force = useForceUpdate();
   const grants = listGrants();
   const [editing, setEditing] = React.useState<Partial<Grant> | null>(null);
 

@@ -6,7 +6,7 @@ import { AuthShell } from './AuthShell';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/misc';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, roleForEmail } from '@/context/AuthContext';
 import type { UserRole } from '@culina/shared';
 
 export default function Login() {
@@ -24,8 +24,7 @@ export default function Login() {
     const { error } = await login(email, password);
     setLoading(false);
     if (error) return toast.error(error);
-    const role: UserRole = email.includes('admin') ? 'admin' : email.includes('tenant') || email.includes('sara') ? 'tenant' : 'operator';
-    navigate(homeFor(role));
+    navigate(homeFor(roleForEmail(email)));
   }
 
   function demo(role: UserRole) {

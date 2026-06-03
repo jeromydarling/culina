@@ -4,8 +4,7 @@ import { PageHeader } from '@/components/ui/misc';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { listLearning } from '@/lib/store';
-
-const catLabel = (c: string) => c.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+import { titleCase as catLabel } from '@/lib/format';
 
 export default function Content() {
   const resources = listLearning();

@@ -12,9 +12,9 @@ import { listLearning, getTenantProfile } from '@/lib/store';
 import { callAI } from '@/lib/ai';
 import { LEARNING_CATEGORIES } from '@culina/shared';
 import type { LearningResource } from '@culina/shared';
+import { titleCase as catLabel } from '@/lib/format';
 
 const typeIcon = { article: FileText, video: PlayCircle, checklist: ListChecks, template: FileText, guide: BookOpen };
-const catLabel = (c: string) => c.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 
 export default function Learning() {
   const { profile } = useAuth();

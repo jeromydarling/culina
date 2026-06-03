@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useForceUpdate } from '@/lib/hooks';
 import { toast } from 'sonner';
 import { Plus, Trash2, Sparkles, Printer, Tag, ArrowLeft, ChefHat } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -15,7 +16,7 @@ import { genId } from '@/lib/utils';
 
 export default function Recipes() {
   const { profile } = useAuth();
-  const [, force] = React.useReducer((x) => x + 1, 0);
+  const force = useForceUpdate();
   const recipes = listRecipes(profile!.id);
   const [editingId, setEditingId] = React.useState<string | null>(null);
 

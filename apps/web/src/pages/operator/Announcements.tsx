@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useForceUpdate } from '@/lib/hooks';
 import { toast } from 'sonner';
 import { Pin, Plus } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -12,7 +13,7 @@ import { formatDistanceToNow } from 'date-fns';
 export default function Announcements() {
   const { profile } = useAuth();
   const kitchen = getKitchenByOperator(profile!.id)!;
-  const [, force] = React.useReducer((x) => x + 1, 0);
+  const force = useForceUpdate();
   const items = listAnnouncements(kitchen.id);
   const [open, setOpen] = React.useState(false);
   const [form, setForm] = React.useState({ title: '', body: '', is_pinned: false });

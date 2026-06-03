@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useForceUpdate } from '@/lib/hooks';
 import { toast } from 'sonner';
 import { Upload, FileCheck2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -15,7 +16,7 @@ import { format } from 'date-fns';
 export default function Documents() {
   const { profile } = useAuth();
   const membership = getMembershipForTenant(profile!.id);
-  const [, force] = React.useReducer((x) => x + 1, 0);
+  const force = useForceUpdate();
   const docs = listComplianceForTenant(profile!.id);
   const [open, setOpen] = React.useState(false);
   const [form, setForm] = React.useState<{ doc_type: DocType; doc_name: string; expiration_date: string }>({ doc_type: 'food_handler_cert', doc_name: '', expiration_date: '' });

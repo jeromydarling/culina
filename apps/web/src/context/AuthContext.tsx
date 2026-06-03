@@ -17,6 +17,13 @@ const AuthContext = React.createContext<AuthState | undefined>(undefined);
 
 const DEMO_KEY = 'culina_demo_user';
 
+/** Infer a role from an email address (used for demo logins / routing). */
+export function roleForEmail(email: string): UserRole {
+  if (email.includes('admin')) return 'admin';
+  if (email.includes('tenant') || email.includes('sara')) return 'tenant';
+  return 'operator';
+}
+
 const demoIdForRole: Record<UserRole, string> = {
   operator: IDS.operator,
   tenant: IDS.sara,
@@ -62,16 +69,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = React.useCallback(
     async (email: string, password: string): Promise<{ error?: string }> => {
       if (isDemoMode) {
-        // Match a seeded demo profile by email; otherwise default to operator.
-        const seeded = ['demo@operator.culina.app', 'sara@tenant.culina.app', 'admin@culina.app'];
-        const role: UserRole = email.includes('admin')
-          ? 'admin'
-          : email.includes('tenant') || email.includes('sara')
-            ? 'tenant'
-            : 'operator';
         if (!password) return { error: 'Password required' };
-        void seeded;
-        loginAsDemo(role);
+        loginAsDemo(roleForEmail(email));
         return {};
       }
       const { error } = await supabase!.auth.signInWithPassword({ email, password });

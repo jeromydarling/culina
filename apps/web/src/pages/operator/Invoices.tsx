@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useForceUpdate } from '@/lib/hooks';
 import { toast } from 'sonner';
 import { Plus, Send, Check } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -23,7 +24,7 @@ export default function Invoices() {
   const { profile } = useAuth();
   const kitchen = getKitchenByOperator(profile!.id)!;
   const memberships = listMemberships(kitchen.id);
-  const [, force] = React.useReducer((x) => x + 1, 0);
+  const force = useForceUpdate();
   const invoices = listInvoices(kitchen.id);
   const [open, setOpen] = React.useState(false);
   const [form, setForm] = React.useState({ tenant_id: memberships[0]?.tenant_id ?? '', description: 'Monthly membership', amount: '600', due: '' });
