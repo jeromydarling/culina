@@ -11,6 +11,8 @@ import {
   Settings,
   CreditCard,
   KanbanSquare,
+  KeyRound,
+  Network,
 } from 'lucide-react';
 import { DashboardLayout, type NavItem } from '@/components/layout/DashboardLayout';
 
@@ -22,8 +24,10 @@ const nav: NavItem[] = [
   { to: '/operator/invoices', label: 'Invoices', icon: FileText },
   { to: '/operator/compliance', label: 'Compliance', icon: ShieldCheck },
   { to: '/operator/spaces', label: 'Spaces & Equipment', icon: Boxes },
+  { to: '/operator/access', label: 'Access Control', icon: KeyRound },
   { to: '/operator/announcements', label: 'Announcements', icon: Megaphone },
   { to: '/operator/analytics', label: 'Analytics', icon: LineChart },
+  { to: '/operator/network', label: 'Peer Network', icon: Network },
   { to: '/operator/stripe-connect', label: 'Payments', icon: CreditCard },
   { to: '/operator/settings', label: 'Settings', icon: Settings },
 ];

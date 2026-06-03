@@ -2,6 +2,8 @@ import { type Env, corsHeaders, json, error } from './lib/http';
 import { handleAI } from './ai';
 import { handleImage } from './ai/image';
 import { handleStripe } from './stripe';
+import { handleAuth } from './auth';
+import { handleUpload, handleFile } from './storage';
 
 /**
  * Culina API — Cloudflare Worker.
@@ -35,7 +37,22 @@ export default {
     }
 
     if (path === '/api/health') {
-      return json({ ok: true, service: 'culina', ai: !!env.ANTHROPIC_API_KEY, images: !!env.AI, stripe: !!env.STRIPE_SECRET_KEY }, env);
+      return json({ ok: true, service: 'culina', ai: !!env.ANTHROPIC_API_KEY, images: !!env.AI, db: !!env.DB, storage: !!env.STORAGE, stripe: !!env.STRIPE_SECRET_KEY }, env);
+    }
+
+    // Auth (Cloudflare D1 + JWT — no external accounts)
+    const authMatch = path.match(/^\/api\/auth\/(.+)$/);
+    if (authMatch && (request.method === 'POST' || request.method === 'GET')) {
+      return handleAuth(authMatch[1], request, env);
+    }
+
+    // File storage (R2)
+    if (path === '/api/upload' && request.method === 'POST') {
+      return handleUpload(request, env);
+    }
+    const fileMatch = path.match(/^\/api\/files\/(.+)$/);
+    if (fileMatch && request.method === 'GET') {
+      return handleFile(fileMatch[1], env);
     }
 
     // Flux image generation (Workers AI)

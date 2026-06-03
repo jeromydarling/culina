@@ -1,13 +1,14 @@
 export interface Env {
   ASSETS?: { fetch: (request: Request) => Promise<Response> };
   AI?: { run: (model: string, input: Record<string, unknown>) => Promise<unknown> };
+  DB?: D1Database;
+  STORAGE?: R2Bucket;
+  AUTH_SECRET?: string;
   ANTHROPIC_API_KEY?: string;
   ANTHROPIC_MODEL?: string;
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
   STRIPE_PLATFORM_FEE_PERCENT?: string;
-  SUPABASE_URL?: string;
-  SUPABASE_SERVICE_ROLE_KEY?: string;
   RESEND_API_KEY?: string;
   RESEND_FROM_EMAIL?: string;
   ALLOWED_ORIGIN?: string;

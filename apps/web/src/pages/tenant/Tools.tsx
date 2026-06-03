@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Building2, Tag, FileBadge, Store, Boxes, ClipboardList, Sparkles, ArrowLeft } from 'lucide-react';
+import { Building2, Tag, FileBadge, Store, Boxes, ClipboardList, Sparkles, ArrowLeft, Barcode, Download } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { PageHeader, Spinner } from '@/components/ui/misc';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ const tools = [
   { id: 'permitting', icon: FileBadge, title: 'Permitting Wizard', desc: 'Required permits for your state and products.' },
   { id: 'sales-channels', icon: Store, title: 'Sales Channel Finder', desc: 'Farmers markets, co-ops, and retail buyers.' },
   { id: 'co-packer', icon: Boxes, title: 'Co-packer Matchmaking', desc: 'Connect with co-packing resources to scale.' },
+  { id: 'barcode', icon: Barcode, title: 'UPC / Barcode Generator', desc: 'Create a scannable barcode + UPC guidance for retail.' },
   { id: 'business-plan', icon: ClipboardList, title: 'Business Plan Builder', desc: 'AI-assisted, fill-in-the-blank business plan.' },
 ];
 
@@ -62,6 +63,8 @@ function ToolBody({ tool }: { tool: string }) {
       return <SalesChannels />;
     case 'co-packer':
       return <CoPacker />;
+    case 'barcode':
+      return <BarcodeTool />;
     case 'business-plan':
       return <BusinessPlan />;
     default:
@@ -154,6 +157,68 @@ function CoPacker() {
         </form>
       )}
     </CardContent></Card>
+  );
+}
+
+const UPC_L = ['0001101', '0011001', '0010011', '0111101', '0100011', '0110001', '0101111', '0111011', '0110111', '0001011'];
+const UPC_R = UPC_L.map((s) => s.replace(/[01]/g, (b) => (b === '0' ? '1' : '0')));
+
+function upcCheckDigit(d11: string): number {
+  let odd = 0, even = 0;
+  for (let i = 0; i < 11; i++) (i % 2 === 0 ? (odd += +d11[i]) : (even += +d11[i]));
+  return (10 - ((odd * 3 + even) % 10)) % 10;
+}
+function encodeUpc(upc12: string): string {
+  let bits = '101';
+  for (let i = 0; i < 6; i++) bits += UPC_L[+upc12[i]];
+  bits += '01010';
+  for (let i = 6; i < 12; i++) bits += UPC_R[+upc12[i]];
+  return bits + '101';
+}
+
+function BarcodeTool() {
+  const [digits, setDigits] = React.useState('07350053');
+  const padded = (digits.replace(/\D/g, '') + '00000000000').slice(0, 11);
+  const upc = padded + String(upcCheckDigit(padded));
+  const bits = encodeUpc(upc);
+  const moduleW = 2;
+  const height = 90;
+  const width = bits.length * moduleW;
+
+  function download() {
+    const svg = document.getElementById('upc-svg')?.outerHTML;
+    if (!svg) return;
+    const blob = new Blob([svg], { type: 'image/svg+xml' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `upc-${upc}.svg`;
+    a.click();
+    toast.success('Barcode downloaded');
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="space-y-3 p-5">
+          <div><Label>Your product number (up to 11 digits — the check digit is added automatically)</Label><Input value={digits} onChange={(e) => setDigits(e.target.value)} maxLength={11} /></div>
+          <div className="rounded-lg border bg-white p-5 text-center">
+            <svg id="upc-svg" xmlns="http://www.w3.org/2000/svg" width={width} height={height + 20} viewBox={`0 0 ${width} ${height + 20}`} className="mx-auto">
+              <rect width={width} height={height + 20} fill="#ffffff" />
+              {bits.split('').map((b, i) => b === '1' ? <rect key={i} x={i * moduleW} y={0} width={moduleW} height={height} fill="#000" /> : null)}
+              <text x={width / 2} y={height + 16} textAnchor="middle" fontFamily="monospace" fontSize="14" fill="#000">{upc}</text>
+            </svg>
+          </div>
+          <Button onClick={download}><Download className="h-4 w-4" /> Download barcode (SVG)</Button>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-5 text-sm text-muted-foreground space-y-2">
+          <p className="font-medium text-foreground">Using barcodes on real retail products</p>
+          <p>This generates a valid <strong>UPC-A</strong> barcode graphic for mockups, internal SKUs, and pickup labels. For products sold through major retailers, purchase a genuine company prefix from <a href="https://www.gs1us.org" target="_blank" rel="noreferrer" className="text-primary hover:underline">GS1 US</a> so your UPC is globally unique.</p>
+          <p>Place the barcode on a flat, high-contrast area of your label, keep a quiet zone (clear margin) on both sides, and don't shrink it below ~80% scale.</p>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

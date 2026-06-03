@@ -25,6 +25,25 @@
     "binding": "AI"
   },
 
+  // Cloudflare D1 (SQLite) — the database (created in this account).
+  // Migrations live in /migrations and are applied with:
+  //   npx wrangler d1 migrations apply culina --remote
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "culina",
+      "database_id": "fb2ded31-3500-4f56-bc8b-a1834d35dc7a",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // Cloudflare R2 — file storage for documents, logos, and menu images.
+  // Create the bucket once, then uncomment:
+  //   npx wrangler r2 bucket create culina-files
+  // "r2_buckets": [
+  //   { "binding": "STORAGE", "bucket_name": "culina-files" }
+  // ],
+
   "vars": {
     "ANTHROPIC_MODEL": "claude-3-5-sonnet-20241022",
     "STRIPE_PLATFORM_FEE_PERCENT": "1.5",

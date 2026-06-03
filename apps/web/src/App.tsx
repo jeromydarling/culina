@@ -27,6 +27,8 @@ const OperatorCompliance = lazy(() => import('@/pages/operator/Compliance'));
 const OperatorSpaces = lazy(() => import('@/pages/operator/Spaces'));
 const OperatorAnnouncements = lazy(() => import('@/pages/operator/Announcements'));
 const OperatorAnalytics = lazy(() => import('@/pages/operator/Analytics'));
+const OperatorAccess = lazy(() => import('@/pages/operator/AccessControl'));
+const OperatorNetwork = lazy(() => import('@/pages/operator/PeerNetwork'));
 const OperatorSettings = lazy(() => import('@/pages/operator/Settings'));
 const OperatorStripe = lazy(() => import('@/pages/operator/StripeConnect'));
 
@@ -38,8 +40,11 @@ const TenantDocuments = lazy(() => import('@/pages/tenant/Documents'));
 const TenantRecipes = lazy(() => import('@/pages/tenant/Recipes'));
 const TenantProducts = lazy(() => import('@/pages/tenant/Products'));
 const TenantStorefrontEditor = lazy(() => import('@/pages/tenant/StorefrontEditor'));
+const TenantMarketing = lazy(() => import('@/pages/tenant/Marketing'));
 const TenantGrants = lazy(() => import('@/pages/tenant/Grants'));
 const TenantLearning = lazy(() => import('@/pages/tenant/Learning'));
+const TenantMentors = lazy(() => import('@/pages/tenant/Mentors'));
+const TenantCommunity = lazy(() => import('@/pages/tenant/Community'));
 const TenantTools = lazy(() => import('@/pages/tenant/Tools'));
 const TenantSettings = lazy(() => import('@/pages/tenant/Settings'));
 const TenantStripe = lazy(() => import('@/pages/tenant/StripeConnect'));
@@ -94,8 +99,10 @@ export default function App() {
           <Route path="compliance" element={<OperatorCompliance />} />
           <Route path="spaces" element={<OperatorSpaces />} />
           <Route path="equipment" element={<OperatorSpaces />} />
+          <Route path="access" element={<OperatorAccess />} />
           <Route path="announcements" element={<OperatorAnnouncements />} />
           <Route path="analytics" element={<OperatorAnalytics />} />
+          <Route path="network" element={<OperatorNetwork />} />
           <Route path="settings" element={<OperatorSettings />} />
           <Route path="stripe-connect" element={<OperatorStripe />} />
         </Route>
@@ -119,8 +126,11 @@ export default function App() {
           <Route path="products" element={<TenantProducts />} />
           <Route path="storefront" element={<TenantStorefrontEditor />} />
           <Route path="storefront/editor" element={<TenantStorefrontEditor />} />
+          <Route path="marketing" element={<TenantMarketing />} />
           <Route path="grants" element={<TenantGrants />} />
           <Route path="learning" element={<TenantLearning />} />
+          <Route path="mentors" element={<TenantMentors />} />
+          <Route path="community" element={<TenantCommunity />} />
           <Route path="tools" element={<TenantTools />} />
           <Route path="tools/:tool" element={<TenantTools />} />
           <Route path="settings" element={<TenantSettings />} />

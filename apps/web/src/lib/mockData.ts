@@ -17,6 +17,13 @@ import type {
   Announcement,
   Notification,
   TenantSite,
+  AccessCredential,
+  AccessEvent,
+  Mentor,
+  MentorRequest,
+  Classified,
+  CommunityPost,
+  EmailSubscriber,
 } from '@culina/shared';
 import { computeCogs, feeBreakdown } from '@culina/shared';
 
@@ -321,6 +328,50 @@ export const announcements: Announcement[] = [
 
 export const tenantSites: TenantSite[] = [
   { id: 'ts_sara', tenant_id: IDS.sara, site_slug: 'saras-sourdough', theme: 'warm_artisan', hero_headline: 'Bread with a soul', hero_subheadline: 'Naturally leavened, baked fresh every week in Minneapolis.', hero_image_url: null, about_text: "Sara's Sourdough began with a single jar of starter on a windowsill. Today we bake small batches of naturally-leavened bread for our neighbors — slow-fermented, never rushed.", color_primary: '#2D4A3E', color_secondary: '#F5E6C8', font_heading: 'Playfair Display', font_body: 'Inter', show_products: true, show_about: true, show_contact: true, show_social: true, custom_domain: null, is_published: true, meta_title: "Sara's Sourdough — Naturally leavened bread", meta_description: 'Fresh sourdough bread and pastries, baked weekly in Minneapolis.', created_at: iso(addDays(-50)), updated_at: iso(addDays(-2)) },
+];
+
+export const accessCredentials: AccessCredential[] = [
+  { id: 'ac_1', kitchen_id: IDS.kitchen, tenant_id: IDS.sara, lock_name: 'Main Entrance', provider: 'SmartLock (Kisi)', code: '4821', status: 'active', schedule: 'Mon–Sun 5am–11pm', last_used: iso(addDays(0)), created_at: iso(addDays(-200)) },
+  { id: 'ac_2', kitchen_id: IDS.kitchen, tenant_id: IDS.sara, lock_name: 'Cold Storage Bay 1', provider: 'SmartLock (Kisi)', code: '7740', status: 'active', schedule: '24/7', last_used: iso(addDays(-1)), created_at: iso(addDays(-200)) },
+  { id: 'ac_3', kitchen_id: IDS.kitchen, tenant_id: IDS.marco, lock_name: 'Main Entrance', provider: 'SmartLock (Kisi)', code: '5093', status: 'active', schedule: 'Mon–Fri 7am–9pm', last_used: iso(addDays(-2)), created_at: iso(addDays(-140)) },
+  { id: 'ac_4', kitchen_id: IDS.kitchen, tenant_id: IDS.marco, lock_name: 'Dry Storage', provider: 'Keypad', code: '1188', status: 'revoked', schedule: '—', last_used: iso(addDays(-30)), created_at: iso(addDays(-140)) },
+];
+
+export const accessEvents: AccessEvent[] = [
+  { id: 'ae_1', kitchen_id: IDS.kitchen, tenant_id: IDS.sara, lock_name: 'Main Entrance', event: 'Unlocked', created_at: iso(addDays(0)) },
+  { id: 'ae_2', kitchen_id: IDS.kitchen, tenant_id: IDS.marco, lock_name: 'Main Entrance', event: 'Unlocked', created_at: iso(addDays(-1)) },
+  { id: 'ae_3', kitchen_id: IDS.kitchen, tenant_id: IDS.sara, lock_name: 'Cold Storage Bay 1', event: 'Unlocked', created_at: iso(addDays(-1)) },
+  { id: 'ae_4', kitchen_id: IDS.kitchen, tenant_id: IDS.marco, lock_name: 'Main Entrance', event: 'Access denied (outside schedule)', created_at: iso(addDays(-2)) },
+];
+
+export const mentors: Mentor[] = [
+  { id: 'me_1', name: 'Carla Whitfield', expertise: 'Food law & compliance', bio: '20 years guiding CPG brands through FDA labeling and state permitting.', availability: '2 slots/week', rate: 'Free (volunteer)', avatar_emoji: '⚖️', created_at: iso(addDays(-100)) },
+  { id: 'me_2', name: 'Devon Park', expertise: 'Wholesale & distribution', bio: 'Former grocery buyer; helps makers land their first retail accounts.', availability: 'Monthly office hours', rate: 'Free (volunteer)', avatar_emoji: '📦', created_at: iso(addDays(-100)) },
+  { id: 'me_3', name: 'Aisha Rahman', expertise: 'Branding & marketing', bio: 'Built three food brands from farmers market to national shelf.', availability: '1 slot/week', rate: '$50/session', avatar_emoji: '🎨', created_at: iso(addDays(-100)) },
+  { id: 'me_4', name: 'Luis Moreno', expertise: 'Scaling & co-packing', bio: 'Operations consultant for small-batch to mid-scale production.', availability: 'By request', rate: '$75/session', avatar_emoji: '🏭', created_at: iso(addDays(-100)) },
+  { id: 'me_5', name: 'Grace Lin', expertise: 'Financing & grants', bio: 'CDFI lender; helps makers prepare loan and grant applications.', availability: '2 slots/month', rate: 'Free (volunteer)', avatar_emoji: '💰', created_at: iso(addDays(-100)) },
+];
+
+export const mentorRequests: MentorRequest[] = [
+  { id: 'mr_1', tenant_id: IDS.sara, mentor_id: 'me_2', status: 'accepted', message: 'Want help approaching co-ops for wholesale.', created_at: iso(addDays(-12)) },
+];
+
+export const classifieds: Classified[] = [
+  { id: 'cl_1', kitchen_id: IDS.kitchen, author_tenant_id: IDS.sara, kind: 'ingredient', listing_type: 'offer', title: 'Surplus organic bread flour (50 lb)', description: 'Over-ordered a pallet — selling a sack at cost.', price_cents: 3500, status: 'active', created_at: iso(addDays(-2)) },
+  { id: 'cl_2', kitchen_id: IDS.kitchen, author_tenant_id: IDS.marco, kind: 'equipment_time', listing_type: 'offer', title: 'Splitting tilt-skillet block, Tue AM', description: 'Booked 4 hrs, only need 2. Split the cost?', price_cents: null, status: 'active', created_at: iso(addDays(-1)) },
+  { id: 'cl_3', kitchen_id: IDS.kitchen, author_tenant_id: IDS.amara, kind: 'packaging', listing_type: 'request', title: 'Looking for 8oz kraft deli containers', description: 'Anyone have a spare case to sell?', price_cents: null, status: 'active', created_at: iso(addDays(-3)) },
+  { id: 'cl_4', kitchen_id: IDS.kitchen, author_tenant_id: IDS.sara, kind: 'collab', listing_type: 'offer', title: 'Holiday market booth share', description: 'Splitting a farmers-market booth in December — one spot left.', price_cents: 6000, status: 'active', created_at: iso(addDays(-5)) },
+];
+
+export const communityPosts: CommunityPost[] = [
+  { id: 'cp_1', kitchen_id: IDS.kitchen, author_id: IDS.operator, author_name: 'Dana (Operator)', kind: 'post', body: 'Welcome to the Midwest Food Hub community board! Share wins, asks, and surplus here.', created_at: iso(addDays(-6)) },
+  { id: 'cp_2', kitchen_id: IDS.kitchen, author_id: IDS.sara, author_name: "Sara's Sourdough", kind: 'spotlight', body: 'Hit 50 loaves/week this month — thank you all for the referrals! 🥖', created_at: iso(addDays(-2)) },
+  { id: 'cp_3', kitchen_id: IDS.kitchen, author_id: IDS.marco, author_name: "Marco's Salsa Co", kind: 'question', body: 'Anyone know a good local label printer for short runs?', created_at: iso(addDays(-1)) },
+];
+
+export const emailSubscribers: EmailSubscriber[] = [
+  { id: 'es_1', tenant_id: IDS.sara, email: 'fan1@example.com', name: 'Jordan', source: 'storefront', created_at: iso(addDays(-20)) },
+  { id: 'es_2', tenant_id: IDS.sara, email: 'fan2@example.com', name: null, source: 'market', created_at: iso(addDays(-10)) },
 ];
 
 export const notifications: Notification[] = [

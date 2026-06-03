@@ -22,9 +22,9 @@ A complete, **runnable** MVP across the whole product:
 | **Public** — Kitchen Discovery network, kitchen profiles + lead intake, tenant storefront with cart & checkout | ✅ |
 | **Admin panel** — platform overview, kitchen registry, users, grant management, learning content | ✅ |
 | Cloudflare **Worker API** — Claude AI proxy (7 endpoints) + Stripe Connect (Express) + webhooks | ✅ |
-| Supabase schema + RLS + seed | ✅ |
+| Cloudflare D1 schema + seed + Worker JWT auth (no external accounts) | ✅ |
 
-> **Demo mode:** with no Supabase/Stripe/Anthropic secrets configured, the web
+> **Demo mode:** with no backend wired (`VITE_USE_API` unset), the web app runs
 > app runs entirely on seeded mock data and simulated auth, and AI features fall
 > back to realistic canned responses. This makes the whole product explorable
 > with `npm install && npm run dev` — no accounts required.
@@ -35,7 +35,7 @@ A complete, **runnable** MVP across the whole product:
 
 - **Frontend:** React + TypeScript + Vite + Tailwind CSS + hand-rolled shadcn-style UI, React Router v6, Recharts, Sonner
 - **API:** Cloudflare Workers (TypeScript) — AI proxy + Stripe
-- **Database:** Supabase (PostgreSQL + Row Level Security)
+- **Database:** Cloudflare D1 (SQLite) · **Storage:** Cloudflare R2 · **Auth:** Worker-issued JWT (no external accounts)
 - **Payments:** Stripe Connect (Express), flat 1.5% platform fee
 - **AI:** Anthropic Claude via a Worker proxy (key never touches the browser)
 - **Email:** Resend (transactional)
@@ -49,7 +49,7 @@ culina/
 │   └── worker/     # Cloudflare Worker API (AI proxy + Stripe)
 ├── packages/
 │   └── shared/     # Types, constants, money/COGS utilities
-├── supabase/
+├── migrations/      # Cloudflare D1 (SQLite) schema + seed
 │   ├── migrations/ # 0001_init.sql (schema) + 0002_rls.sql (policies)
 │   └── seed.sql
 └── .github/workflows/deploy.yml
@@ -87,25 +87,30 @@ root [`wrangler.jsonc`](./wrangler.jsonc). You get a public URL two ways:
   (`.github/workflows/deploy.yml`) with `CLOUDFLARE_API_TOKEN` +
   `CLOUDFLARE_ACCOUNT_ID` repo secrets.
 
-### Going live (services)
+### Going live — 100% Cloudflare, no external accounts
 
-1. **Supabase:** create a project, run `supabase/migrations/*.sql` then
-   `seed.sql`. Set `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (web) — the app
-   automatically leaves demo mode once these are present.
-2. **Workers AI (Flux):** already enabled via the `[ai]` binding — no key needed.
-3. **Worker secrets:** `wrangler secret put ANTHROPIC_API_KEY` (and
-   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`).
+The `culina` D1 database is already created and migrated in this account
+(`wrangler.jsonc` points at it). To switch the app from demo data to the real
+backend:
+
+1. **D1:** already provisioned. To re-apply locally: `npx wrangler d1 migrations apply culina --remote`.
+2. **R2 (file storage):** `npx wrangler r2 bucket create culina-files`, then
+   uncomment the `r2_buckets` block in `wrangler.jsonc`.
+3. **Auth secret:** `npx wrangler secret put AUTH_SECRET` (a long random string).
+4. **Workers AI (Flux):** already enabled via the `[ai]` binding — no key needed.
+5. **Optional:** `wrangler secret put ANTHROPIC_API_KEY` (Claude text features),
+   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`.
+6. **Flip the switch:** set `VITE_USE_API=true` and redeploy — the app now uses
+   D1-backed accounts (signup/login) and persistence instead of demo data.
 
 Because the SPA and API share one origin in production, the frontend calls
 `/api/*` relatively — no `VITE_API_URL` needed. See `.env.example` and
 `apps/worker/.dev.vars.example` for the full variable list.
 
-## 🔑 Demo accounts (when wired to Supabase)
+## 🔑 Demo accounts (in-app demo mode)
 
-| Role | Email | Password |
-|---|---|---|
-| Operator | `demo@operator.culina.app` | `demo1234` |
-| Maker | `sara@tenant.culina.app` | `demo1234` |
+The login screen offers one-click **Operator / Maker / Admin** demo logins — no
+credentials needed. With `VITE_USE_API=true`, create real accounts via signup.
 
 ## 💵 Fee transparency
 

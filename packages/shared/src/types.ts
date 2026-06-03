@@ -414,6 +414,85 @@ export interface LearningResource {
   created_at: string;
 }
 
+// ─── Tier 1: Access control / smart locks ──────────────────────────────
+export interface AccessCredential {
+  id: string;
+  kitchen_id: string;
+  tenant_id: string | null;
+  lock_name: string;
+  provider: string | null;
+  code: string | null;
+  status: 'active' | 'revoked' | 'expired';
+  schedule: string | null;
+  last_used: string | null;
+  created_at: string;
+}
+
+export interface AccessEvent {
+  id: string;
+  kitchen_id: string;
+  tenant_id: string | null;
+  lock_name: string | null;
+  event: string;
+  created_at: string;
+}
+
+// ─── Tier 2: Mentor matching ────────────────────────────────────────────
+export interface Mentor {
+  id: string;
+  name: string;
+  expertise: string;
+  bio: string;
+  availability: string;
+  rate: string;
+  avatar_emoji: string;
+  created_at: string;
+}
+
+export interface MentorRequest {
+  id: string;
+  tenant_id: string;
+  mentor_id: string;
+  status: 'requested' | 'accepted' | 'completed' | 'declined';
+  message: string | null;
+  created_at: string;
+}
+
+// ─── Tier 2: Email marketing list ───────────────────────────────────────
+export interface EmailSubscriber {
+  id: string;
+  tenant_id: string;
+  email: string;
+  name: string | null;
+  source: string | null;
+  created_at: string;
+}
+
+// ─── Tier 3: Peer-to-peer marketplace / classifieds ─────────────────────
+export interface Classified {
+  id: string;
+  kitchen_id: string | null;
+  author_tenant_id: string | null;
+  kind: 'ingredient' | 'packaging' | 'equipment_time' | 'collab' | 'other';
+  listing_type: 'offer' | 'request';
+  title: string;
+  description: string | null;
+  price_cents: number | null;
+  status: 'active' | 'closed';
+  created_at: string;
+}
+
+// ─── Tier 3: Community feed ─────────────────────────────────────────────
+export interface CommunityPost {
+  id: string;
+  kitchen_id: string | null;
+  author_id: string | null;
+  author_name: string | null;
+  kind: 'post' | 'spotlight' | 'question';
+  body: string;
+  created_at: string;
+}
+
 export interface Notification {
   id: string;
   user_id: string;

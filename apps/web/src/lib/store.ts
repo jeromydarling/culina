@@ -11,6 +11,11 @@ import type {
   Recipe,
   TenantProfile,
   TenantSite,
+  AccessCredential,
+  Classified,
+  CommunityPost,
+  MentorRequest,
+  EmailSubscriber,
 } from '@culina/shared';
 import { computeCogs, feeBreakdown } from '@culina/shared';
 import * as seed from './mockData';
@@ -40,6 +45,13 @@ const state = {
   announcements: [...seed.announcements],
   tenantSites: [...seed.tenantSites],
   notifications: [...seed.notifications],
+  accessCredentials: [...seed.accessCredentials],
+  accessEvents: [...seed.accessEvents],
+  mentors: [...seed.mentors],
+  mentorRequests: [...seed.mentorRequests],
+  classifieds: [...seed.classifieds],
+  communityPosts: [...seed.communityPosts],
+  emailSubscribers: [...seed.emailSubscribers],
 };
 
 export const IDS = seed.IDS;
@@ -456,4 +468,79 @@ export const listNotifications = (userId: string) =>
 export const markNotificationRead = (id: string) => {
   const n = state.notifications.find((x) => x.id === id);
   if (n) n.is_read = true;
+};
+
+// ─── Access control (Tier 1) ───────────────────────────────────────────────
+export const listAccessCredentials = (kitchenId: string) =>
+  state.accessCredentials.filter((c) => c.kitchen_id === kitchenId);
+export const listAccessCredentialsForTenant = (tenantId: string) =>
+  state.accessCredentials.filter((c) => c.tenant_id === tenantId);
+export const listAccessEvents = (kitchenId: string) =>
+  [...state.accessEvents].filter((e) => e.kitchen_id === kitchenId).reverse();
+export const upsertAccessCredential = (c: Partial<AccessCredential> & { kitchen_id: string; lock_name: string }) => {
+  if (c.id) {
+    const existing = state.accessCredentials.find((x) => x.id === c.id);
+    if (existing) { Object.assign(existing, c); return existing; }
+  }
+  const created: AccessCredential = {
+    id: genId('ac'), tenant_id: null, provider: 'SmartLock (Kisi)',
+    code: String(Math.floor(1000 + Math.random() * 9000)), status: 'active',
+    schedule: '24/7', last_used: null, created_at: new Date().toISOString(), ...c,
+  } as AccessCredential;
+  state.accessCredentials.push(created);
+  return created;
+};
+export const revokeAccessCredential = (id: string) => {
+  const c = state.accessCredentials.find((x) => x.id === id);
+  if (c) c.status = 'revoked';
+};
+
+// ─── Mentors (Tier 2) ───────────────────────────────────────────────────────
+export const listMentors = () => state.mentors;
+export const listMentorRequests = (tenantId: string) =>
+  state.mentorRequests.filter((r) => r.tenant_id === tenantId);
+export const requestMentor = (tenantId: string, mentorId: string, message: string): MentorRequest => {
+  const created: MentorRequest = {
+    id: genId('mr'), tenant_id: tenantId, mentor_id: mentorId, status: 'requested',
+    message, created_at: new Date().toISOString(),
+  };
+  state.mentorRequests.unshift(created);
+  return created;
+};
+
+// ─── Email subscribers (Tier 2) ─────────────────────────────────────────────
+export const listEmailSubscribers = (tenantId: string) =>
+  state.emailSubscribers.filter((s) => s.tenant_id === tenantId);
+export const addEmailSubscriber = (tenantId: string, email: string, name?: string): EmailSubscriber => {
+  const created: EmailSubscriber = {
+    id: genId('es'), tenant_id: tenantId, email, name: name ?? null, source: 'manual',
+    created_at: new Date().toISOString(),
+  };
+  state.emailSubscribers.unshift(created);
+  return created;
+};
+
+// ─── Classifieds / community (Tier 3) ───────────────────────────────────────
+export const listClassifieds = (kitchenId: string) =>
+  [...state.classifieds].filter((c) => c.kitchen_id === kitchenId && c.status === 'active');
+export const createClassified = (c: Partial<Classified> & { kitchen_id: string; author_tenant_id: string; title: string }): Classified => {
+  const created: Classified = {
+    id: genId('cl'), kind: 'other', listing_type: 'offer', description: null, price_cents: null,
+    status: 'active', created_at: new Date().toISOString(), ...c,
+  } as Classified;
+  state.classifieds.unshift(created);
+  return created;
+};
+export const closeClassified = (id: string) => {
+  const c = state.classifieds.find((x) => x.id === id);
+  if (c) c.status = 'closed';
+};
+export const listCommunityPosts = (kitchenId: string) =>
+  [...state.communityPosts].filter((p) => p.kitchen_id === kitchenId).reverse();
+export const createCommunityPost = (p: { kitchen_id: string; author_id: string; author_name: string; body: string; kind?: CommunityPost['kind'] }): CommunityPost => {
+  const created: CommunityPost = {
+    id: genId('cp'), kind: 'post', created_at: new Date().toISOString(), ...p,
+  } as CommunityPost;
+  state.communityPosts.push(created);
+  return created;
 };

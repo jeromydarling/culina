@@ -1,11 +1,11 @@
-import { API_URL } from './supabase';
+import { API_URL } from './config';
 
 /**
  * Calls a Culina AI endpoint on the Cloudflare Worker. If the worker is
  * unreachable (e.g. in a pure demo with no backend), returns a graceful,
  * canned response so the UI still demonstrates the feature.
  */
-export type ImageStyle = 'dish' | 'product' | 'menu' | 'storefront' | 'kitchen' | 'space';
+export type ImageStyle = 'dish' | 'product' | 'menu' | 'storefront' | 'kitchen' | 'space' | 'logo';
 
 export interface GeneratedImage {
   image: string | null;

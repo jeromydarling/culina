@@ -18,6 +18,7 @@ const STYLE_PRESETS: Record<string, string> = {
   storefront: 'a warm, inviting hero image for a small food brand',
   kitchen: 'a clean modern commercial kitchen, stainless steel stations, no people',
   space: 'a tidy commercial kitchen prep station with equipment, no people',
+  logo: 'a minimal, modern logo emblem for a small food brand, flat vector style, centered on a plain background, no text',
 };
 
 export async function handleImage(request: Request, env: Env): Promise<Response> {

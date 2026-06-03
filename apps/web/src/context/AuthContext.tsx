@@ -1,6 +1,7 @@
 import * as React from 'react';
 import type { Profile, UserRole } from '@culina/shared';
-import { isDemoMode, supabase } from '@/lib/supabase';
+import { isDemoMode } from '@/lib/config';
+import { authApi, getToken, setToken, clearToken } from '@/lib/authApi';
 import { getProfile, IDS } from '@/lib/store';
 
 interface AuthState {
@@ -43,14 +44,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
         return;
       }
-      const { data } = await supabase!.auth.getSession();
-      if (data.session?.user) {
-        const { data: prof } = await supabase!
-          .from('profiles')
-          .select('*')
-          .eq('id', data.session.user.id)
-          .single();
-        if (active) setProfile((prof as Profile) ?? null);
+      // Cloudflare-backed: restore session from JWT.
+      if (getToken()) {
+        try {
+          const { profile: p } = await authApi.me();
+          if (active) setProfile(p);
+        } catch {
+          clearToken();
+        }
       }
       if (active) setLoading(false);
     }
@@ -73,14 +74,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loginAsDemo(roleForEmail(email));
         return {};
       }
-      const { error } = await supabase!.auth.signInWithPassword({ email, password });
-      if (error) return { error: error.message };
-      const { data } = await supabase!.auth.getUser();
-      if (data.user) {
-        const { data: prof } = await supabase!.from('profiles').select('*').eq('id', data.user.id).single();
-        setProfile((prof as Profile) ?? null);
+      try {
+        const { token, profile: p } = await authApi.login(email, password);
+        setToken(token);
+        setProfile(p);
+        return {};
+      } catch (e) {
+        return { error: (e as Error).message };
       }
-      return {};
     },
     [loginAsDemo],
   );
@@ -91,21 +92,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loginAsDemo(role);
         return {};
       }
-      const { data, error } = await supabase!.auth.signUp({ email, password });
-      if (error) return { error: error.message };
-      if (data.user) {
-        await supabase!.from('profiles').insert({ id: data.user.id, email, role, full_name: fullName });
-        setProfile({
-          id: data.user.id,
-          email,
-          role,
-          full_name: fullName,
-          avatar_url: null,
-          phone: null,
-          created_at: new Date().toISOString(),
-        });
+      try {
+        const { token, profile: p } = await authApi.signup(email, password, role, fullName);
+        setToken(token);
+        setProfile(p);
+        return {};
+      } catch (e) {
+        return { error: (e as Error).message };
       }
-      return {};
     },
     [loginAsDemo],
   );
@@ -113,10 +107,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = React.useCallback(async () => {
     if (isDemoMode) {
       localStorage.removeItem(DEMO_KEY);
-      setProfile(null);
-      return;
+    } else {
+      clearToken();
     }
-    await supabase!.auth.signOut();
     setProfile(null);
   }, []);
 
