@@ -25,15 +25,15 @@ import { MARKETPLACE_COMMISSION_PERCENT } from '@culina/shared';
 import { computeCogs, feeBreakdown } from '@culina/shared';
 import * as seed from './mockData';
 import { genId } from './utils';
-import { useApi } from './config';
+import { isLive } from './config';
 import { persist, removeRemote } from './dataApi';
 
-/** Write-through to Cloudflare D1 when running in LIVE mode (no-op in demo). */
+/** Write-through to Cloudflare D1 in a LIVE session (no-op in a demo session). */
 const wt = (table: string, row: unknown) => {
-  if (useApi) persist(table, row as Record<string, unknown>);
+  if (isLive()) persist(table, row as Record<string, unknown>);
 };
 const wtDel = (table: string, id: string) => {
-  if (useApi) removeRemote(table, id);
+  if (isLive()) removeRemote(table, id);
 };
 
 /**

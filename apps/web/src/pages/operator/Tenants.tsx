@@ -10,7 +10,7 @@ import { Input, Label } from '@/components/ui/input';
 import { Badge, statusVariant } from '@/components/ui/badge';
 import { getKitchenByOperator, listMemberships, getTenantProfile, getProfile } from '@/lib/store';
 import { dataApi, type TenantRow } from '@/lib/dataApi';
-import { isDemoMode } from '@/lib/config';
+import { isLive } from '@/lib/config';
 import { formatCents } from '@culina/shared';
 import { format } from 'date-fns';
 
@@ -19,10 +19,10 @@ export default function Tenants() {
   const kitchen = getKitchenByOperator(profile!.id);
   const [invite, setInvite] = React.useState(false);
   const [rows, setRows] = React.useState<TenantRow[] | null>(null);
-  const [loading, setLoading] = React.useState(!isDemoMode);
+  const [loading, setLoading] = React.useState(isLive());
 
   React.useEffect(() => {
-    if (isDemoMode) {
+    if (!isLive()) {
       // Build rows from the in-memory store.
       setRows(
         listMemberships(kitchen!.id).map((m) => {
@@ -59,7 +59,7 @@ export default function Tenants() {
         }
       />
 
-      {!isDemoMode && (
+      {isLive() && (
         <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
           <Database className="h-3.5 w-3.5" /> Live from Cloudflare D1
         </div>

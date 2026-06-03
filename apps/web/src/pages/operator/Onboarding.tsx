@@ -17,7 +17,7 @@ import { PROVIDERS, getConnections, setConnection } from '@/lib/integrations';
 import { completeStep, markWelcomed } from '@/lib/onboarding';
 import { callAI } from '@/lib/ai';
 import { dataApi } from '@/lib/dataApi';
-import { isDemoMode } from '@/lib/config';
+import { isLive } from '@/lib/config';
 
 const SAMPLE_CSV = `Business Name,Contact,Email,Type,Plan,Status
 Sara's Sourdough,Sara Bakes,sara@example.com,bakery,monthly,active
@@ -91,15 +91,15 @@ export default function Onboarding() {
     setImporting(true);
     try {
       let n: number;
-      if (isDemoMode) {
-        n = importTenants(kitchen.id, parsed.rows);
-      } else {
+      if (isLive()) {
         // Persist to Cloudflare D1 via the Worker.
         n = (await dataApi.importTenants(parsed.rows)).imported;
+      } else {
+        n = importTenants(kitchen.id, parsed.rows);
       }
       setImported(n);
       completeStep(profile!.id, 'import');
-      toast.success(`Imported ${n} tenant${n !== 1 ? 's' : ''}${isDemoMode ? '' : ' to D1'}`);
+      toast.success(`Imported ${n} tenant${n !== 1 ? 's' : ''}${isLive() ? ' to D1' : ''}`);
       next();
     } catch (e) {
       toast.error((e as Error).message);

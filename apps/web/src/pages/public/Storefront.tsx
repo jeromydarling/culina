@@ -8,37 +8,45 @@ import { Modal } from '@/components/ui/modal';
 import { Input, Label } from '@/components/ui/input';
 import { getTenantProfileBySlug, getTenantSiteBySlug, getTenantSite, listPublicProducts } from '@/lib/store';
 import { dataApi } from '@/lib/dataApi';
-import { useApi } from '@/lib/config';
 import { Spinner } from '@/components/ui/misc';
 import type { Product, TenantProfile, TenantSite } from '@culina/shared';
 import { formatCents, feeBreakdown } from '@culina/shared';
 
 const productEmoji = ['🥖', '🧁', '🥯', '🍪', '🥐', '🍞'];
 
+type StoreData = { profile: TenantProfile | null; site: TenantSite | null; products: Product[] };
+
 export default function Storefront() {
   const { slug } = useParams();
-  // In LIVE mode the public storefront is served from D1 so published edits show.
-  const [remote, setRemote] = React.useState<{ profile: TenantProfile | null; site: TenantSite | null; products: Product[] } | null>(null);
-  const [loading, setLoading] = React.useState(useApi);
+  // The public storefront always tries live D1 first (so published edits show
+  // for anyone), then falls back to seeded/demo data if there's no backend.
+  const [remote, setRemote] = React.useState<StoreData | null | undefined>(undefined);
 
   React.useEffect(() => {
-    if (!useApi || !slug) return;
+    if (!slug) { setRemote(null); return; }
     dataApi
       .storefront(slug)
-      .then((d) => setRemote({ profile: d.profile ?? null, site: d.site ?? null, products: d.products ?? [] }))
-      .catch(() => setRemote({ profile: null, site: null, products: [] }))
-      .finally(() => setLoading(false));
+      .then((d) => setRemote(d.profile ? { profile: d.profile, site: d.site ?? null, products: d.products ?? [] } : null))
+      .catch(() => setRemote(null));
   }, [slug]);
 
-  const profile = useApi ? remote?.profile ?? null : slug ? getTenantProfileBySlug(slug) : null;
-  const site = useApi ? remote?.site ?? null : slug ? getTenantSiteBySlug(slug) ?? (profile ? getTenantSite(profile.tenant_id) : null) : null;
-  const products = useApi ? remote?.products ?? [] : profile ? listPublicProducts(profile.tenant_id) : [];
+  const inMemory: StoreData | null = slug
+    ? (() => {
+        const p = getTenantProfileBySlug(slug);
+        return { profile: p, site: getTenantSiteBySlug(slug) ?? (p ? getTenantSite(p.tenant_id) : null), products: p ? listPublicProducts(p.tenant_id) : [] };
+      })()
+    : null;
+
+  const data = remote ?? inMemory;
+  const profile = data?.profile ?? null;
+  const site = data?.site ?? null;
+  const products = data?.products ?? [];
 
   const [cart, setCart] = React.useState<Record<string, number>>({});
   const [cartOpen, setCartOpen] = React.useState(false);
   const [checkout, setCheckout] = React.useState(false);
 
-  if (loading) {
+  if (remote === undefined && !inMemory?.profile) {
     return <div className="grid min-h-screen place-items-center"><Spinner className="h-8 w-8" /></div>;
   }
 

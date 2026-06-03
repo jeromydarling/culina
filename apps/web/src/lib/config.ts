@@ -1,43 +1,47 @@
 /**
- * App configuration. Culina runs 100% on Cloudflare — D1 (SQLite) + R2 (files),
- * fronted by the Worker. No external accounts.
+ * Culina runs 100% on Cloudflare — D1 (SQLite) + R2 (files), fronted by the
+ * Worker. No external accounts.
  *
- * Backend mode:
- *  - DEMO (default): seeded in-memory store + simulated auth — zero setup.
- *  - LIVE: real Cloudflare D1 persistence + Worker JWT auth.
+ * Demo and Live coexist, decided by HOW you signed in (not a global switch):
+ *  - DEMO  → one-click role logins. In-memory sandbox, resets on reload. Safe
+ *            for prospective users to poke at every feature.
+ *  - LIVE  → real sign-up / email login. Persists to Cloudflare D1, real auth.
  *
- * LIVE can be enabled at build time (VITE_USE_API=true) OR toggled at runtime in
- * the browser via the login screen (persisted in localStorage), so you can try
- * the real backend without any redeploy.
+ * The mode is stored per browser session and read at runtime so both can be
+ * used from the same deployment.
  */
-const RUNTIME_KEY = 'culina_use_api';
+type SessionMode = 'demo' | 'live';
+const MODE_KEY = 'culina_session_mode';
 
-/** Explicit per-browser override: 'true' | 'false' | null (use build default). */
-export function setLiveMode(on: boolean) {
-  localStorage.setItem(RUNTIME_KEY, on ? 'true' : 'false');
-}
-export function clearLiveModeOverride() {
-  localStorage.removeItem(RUNTIME_KEY);
-}
-
-function override(): boolean | null {
+let mode: SessionMode = (() => {
   try {
-    const v = localStorage.getItem(RUNTIME_KEY);
-    return v === null ? null : v === 'true';
+    return (localStorage.getItem(MODE_KEY) as SessionMode) || 'demo';
   } catch {
-    return null;
+    return 'demo';
+  }
+})();
+
+export function setSessionMode(m: SessionMode) {
+  mode = m;
+  try {
+    localStorage.setItem(MODE_KEY, m);
+  } catch {
+    /* ignore */
+  }
+}
+export function clearSessionMode() {
+  mode = 'demo';
+  try {
+    localStorage.removeItem(MODE_KEY);
+  } catch {
+    /* ignore */
   }
 }
 
-// LIVE (real Cloudflare D1) is the default; a browser override can force Demo.
-const buildDefault = (import.meta.env.VITE_USE_API as string | undefined) !== 'false';
+export const isLive = () => mode === 'live';
+export const isDemo = () => mode === 'demo';
 
-export const useApi = override() ?? buildDefault;
-
-export const isDemoMode = !useApi;
-
-// In production the API is same-origin (one unified Worker), so a relative path
-// works. In dev, point at a locally-running worker.
+// In production the API is same-origin (one unified Worker); in dev, a local one.
 export const API_URL =
   (import.meta.env.VITE_API_URL as string | undefined) ??
   (import.meta.env.DEV ? 'http://localhost:8787' : '');
