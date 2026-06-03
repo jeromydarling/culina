@@ -24,6 +24,13 @@ import { Footer } from '@/components/layout/Footer';
 import { Reveal } from '@/components/Reveal';
 import { SmartImage } from '@/components/SmartImage';
 import { Button } from '@/components/ui/button';
+import { BrowserFrame } from '@/components/marketing/BrowserFrame';
+import {
+  ScreenCalendar,
+  ScreenCompliance,
+  ScreenDiscovery,
+  ScreenStorefront,
+} from '@/components/marketing/MarketingScreens';
 import { IMG } from '@/lib/images';
 import { OPERATOR_PLANS, TENANT_PLANS, formatCents, PLATFORM_FEE_PERCENT } from '@culina/shared';
 
@@ -51,8 +58,10 @@ export default function Landing() {
       <Why />
       <Problem />
       <Solution />
+      <Showcase />
       <Audiences />
       <Features />
+      <SeeItLive />
       <Compare />
       <Pricing />
       <Discovery />
@@ -262,6 +271,62 @@ function Solution() {
               <div className="font-mono text-sm font-bold text-accent">{s.n}</div>
               <h3 className="mt-2 font-heading text-lg font-semibold">{s.title}</h3>
               <p className="mt-2 text-sm text-muted-foreground">{s.body}</p>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────────────── SHOWCASE ─────────────────────────────── */
+function Showcase() {
+  return (
+    <section className="relative overflow-hidden bg-gradient-to-b from-white to-muted/40 py-24">
+      <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 lg:grid-cols-2 lg:px-8">
+        <Reveal>
+          <span className="text-sm font-semibold uppercase tracking-widest text-accent">See it in action</span>
+          <h2 className="mt-3 font-heading text-4xl font-bold text-balance">One calm screen for the whole operation</h2>
+          <p className="mt-4 text-lg text-muted-foreground">
+            Bookings, stations, and equipment in a single conflict-proof calendar — color-coded, fee-transparent,
+            and updated the moment a maker reserves time. No more group texts or double-bookings.
+          </p>
+          <div className="mt-7">
+            <Link to="/features">
+              <Button variant="outline">Tour every feature <ArrowRight className="h-4 w-4" /></Button>
+            </Link>
+          </div>
+        </Reveal>
+        <Reveal delay={120} className="relative">
+          <BrowserFrame url="culina.app/operator/calendar" glow>
+            <ScreenCalendar />
+          </BrowserFrame>
+          <div className="absolute -bottom-10 -left-6 hidden w-56 sm:block">
+            <BrowserFrame url="culina.app/shop/saras-sourdough" tilt>
+              <ScreenStorefront />
+            </BrowserFrame>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────────────── SEE IT LIVE ─────────────────────────────── */
+function SeeItLive() {
+  const items = [
+    { url: 'culina.app/operator/compliance', screen: <ScreenCompliance />, title: 'Compliance, handled', body: 'Red/yellow/green status with reminders before anything lapses.' },
+    { url: 'culina.app/find-a-kitchen', screen: <ScreenDiscovery />, title: 'A live discovery map', body: 'Makers find the right kitchen; operators fill empty hours.' },
+  ];
+  return (
+    <section className="mx-auto max-w-7xl px-4 pb-8 lg:px-8">
+      <div className="grid gap-8 md:grid-cols-2">
+        {items.map((it, i) => (
+          <Reveal key={it.url} delay={i * 120}>
+            <div className="rounded-3xl border bg-card p-6 shadow-card">
+              <BrowserFrame url={it.url}>{it.screen}</BrowserFrame>
+              <h3 className="mt-5 font-heading text-lg font-semibold">{it.title}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{it.body}</p>
             </div>
           </Reveal>
         ))}

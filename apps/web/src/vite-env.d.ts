@@ -6,6 +6,9 @@ interface ImportMetaEnv {
   readonly VITE_API_URL?: string;
   readonly VITE_APP_URL?: string;
   readonly VITE_STRIPE_PUBLISHABLE_KEY?: string;
+  /** Public Mapbox token (pk.*) for the kitchen-discovery map. Optional — the
+   *  map degrades to a styled static fallback when absent. */
+  readonly VITE_MAPBOX_TOKEN?: string;
 }
 
 interface ImportMeta {

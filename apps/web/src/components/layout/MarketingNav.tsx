@@ -8,11 +8,14 @@ import { cn } from '@/lib/utils';
 const links = [
   { to: '/#why', label: 'Why Culina' },
   { to: '/#problem', label: 'The Problem' },
-  { to: '/#features', label: 'Features' },
+  { to: '/features', label: 'Features' },
   { to: '/#compare', label: 'Compare' },
   { to: '/#pricing', label: 'Pricing' },
   { to: '/find-a-kitchen', label: 'Find a Kitchen' },
 ];
+
+// Hash links scroll within the landing page; route links use SPA navigation.
+const isHash = (to: string) => to.includes('#');
 
 export function MarketingNav() {
   const [scrolled, setScrolled] = React.useState(false);
@@ -35,15 +38,25 @@ export function MarketingNav() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:px-8">
         <Logo />
         <nav className="hidden items-center gap-1 lg:flex">
-          {links.map((l) => (
-            <a
-              key={l.to}
-              href={l.to}
-              className="rounded-md px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-primary/5 hover:text-primary"
-            >
-              {l.label}
-            </a>
-          ))}
+          {links.map((l) =>
+            isHash(l.to) ? (
+              <a
+                key={l.to}
+                href={l.to}
+                className="rounded-md px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-primary/5 hover:text-primary"
+              >
+                {l.label}
+              </a>
+            ) : (
+              <Link
+                key={l.to}
+                to={l.to}
+                className="rounded-md px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-primary/5 hover:text-primary"
+              >
+                {l.label}
+              </Link>
+            ),
+          )}
         </nav>
         <div className="hidden items-center gap-2 lg:flex">
           <Link to="/auth/login">
@@ -63,11 +76,17 @@ export function MarketingNav() {
       </div>
       {open && (
         <div className="border-t bg-white px-4 py-3 lg:hidden">
-          {links.map((l) => (
-            <a key={l.to} href={l.to} onClick={() => setOpen(false)} className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
-              {l.label}
-            </a>
-          ))}
+          {links.map((l) =>
+            isHash(l.to) ? (
+              <a key={l.to} href={l.to} onClick={() => setOpen(false)} className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
+                {l.label}
+              </a>
+            ) : (
+              <Link key={l.to} to={l.to} onClick={() => setOpen(false)} className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted">
+                {l.label}
+              </Link>
+            ),
+          )}
           <div className="mt-2 flex gap-2">
             <Link to="/auth/login" className="flex-1">
               <Button variant="outline" className="w-full">Log in</Button>

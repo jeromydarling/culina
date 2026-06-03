@@ -15,6 +15,10 @@ import Login from '@/pages/auth/Login';
 import Signup from '@/pages/auth/Signup';
 import ForgotPassword from '@/pages/auth/ForgotPassword';
 
+// Features is lazy so its recharts-backed mini-screens stay out of the eager
+// landing bundle, while the rest of the marketing pages load immediately.
+const Features = lazy(() => import('@/pages/public/Features'));
+
 // Dashboards are lazy-loaded so the marketing entry (and the heavy charting
 // libraries they pull in) never ship in the initial bundle.
 const OperatorLayout = lazy(() => import('@/pages/operator/OperatorLayout'));
@@ -78,6 +82,7 @@ export default function App() {
         {/* Public */}
         <Route path="/" element={<Landing />} />
         <Route path="/about" element={<About />} />
+        <Route path="/features" element={<Features />} />
         <Route path="/find-a-kitchen" element={<FindAKitchen />} />
         <Route path="/kitchen/:slug" element={<KitchenProfile />} />
         <Route path="/shop/:slug" element={<Storefront />} />

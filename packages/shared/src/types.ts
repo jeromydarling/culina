@@ -33,6 +33,9 @@ export interface Kitchen {
   stripe_onboarded: boolean;
   monthly_price_cents: number;
   is_listed: boolean;
+  /** Geo coordinates for the discovery map (optional; nullable when ungeocoded). */
+  latitude?: number | null;
+  longitude?: number | null;
   created_at: string;
   updated_at: string;
 }
