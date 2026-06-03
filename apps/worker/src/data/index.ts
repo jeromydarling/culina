@@ -274,6 +274,27 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     return json({ booking: toApp('bookings', created) }, env);
   }
 
+  // ── Booking status updates (cancel / complete / no-show) ──────────────
+  // Bookings are excluded from the generic upsert, so status changes flow
+  // through here with explicit authorization + a validated status set.
+  const bk = path.match(/^bookings\/(.+)$/);
+  if (bk && request.method === 'POST') {
+    const bookingId = bk[1];
+    const body: any = await request.json().catch(() => ({}));
+    const existing = await db.prepare('SELECT * FROM bookings WHERE id = ?').bind(bookingId).first<any>();
+    if (!existing) return error('Booking not found', env, 404);
+    const owns = existing.tenant_id === profile.id || (await operatesKitchen(env, existing.kitchen_id, profile.id)) || profile.role === 'admin';
+    if (!owns) return error('Forbidden', env, 403);
+    const allowed = ['pending', 'confirmed', 'cancelled', 'completed', 'no_show'];
+    if (body.status && !allowed.includes(body.status)) return error('Invalid status', env, 400);
+    await db
+      .prepare('UPDATE bookings SET status = COALESCE(?, status), notes = COALESCE(?, notes), updated_at = ? WHERE id = ?')
+      .bind(body.status ?? null, body.notes ?? null, new Date().toISOString(), bookingId)
+      .run();
+    const updated = await db.prepare('SELECT * FROM bookings WHERE id = ?').bind(bookingId).first();
+    return json({ booking: toApp('bookings', updated) }, env);
+  }
+
   // ── Generic upsert (authorized + money-recomputed + conflict-safe) ────
   if (path === 'upsert' && request.method === 'POST') {
     const body: any = await request.json().catch(() => ({}));

@@ -8,6 +8,9 @@ import { PageHeader, EmptyState } from '@/components/ui/misc';
 import { Button } from '@/components/ui/button';
 import { Badge, statusVariant } from '@/components/ui/badge';
 import { listBookings, getSpace, updateBooking } from '@/lib/store';
+import { dataApi } from '@/lib/dataApi';
+import { isLive } from '@/lib/config';
+import { notifyError } from '@/lib/errors';
 import { formatCents } from '@culina/shared';
 import { format } from 'date-fns';
 
@@ -18,7 +21,16 @@ export default function Bookings() {
   const upcoming = bookings.filter((b) => new Date(b.start_time) >= new Date() && b.status !== 'cancelled');
   const past = bookings.filter((b) => !(new Date(b.start_time) >= new Date() && b.status !== 'cancelled'));
 
-  function cancel(id: string) {
+  async function cancel(id: string) {
+    // Persist via the validated endpoint in live mode (frees the slot in D1);
+    // optimistically update the view either way.
+    if (isLive()) {
+      try {
+        await dataApi.updateBooking(id, { status: 'cancelled' });
+      } catch (e) {
+        return notifyError(e, { action: 'cancelBooking' });
+      }
+    }
     updateBooking(id, { status: 'cancelled' });
     force();
     toast.success('Booking cancelled');

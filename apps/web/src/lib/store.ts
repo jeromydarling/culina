@@ -295,7 +295,8 @@ export const createBooking = (input: {
     updated_at: new Date().toISOString(),
   };
   state.bookings.push(booking);
-  wt('bookings', booking);
+  // NOTE: live bookings are created via the validated /api/data/bookings
+  // endpoint (conflict + compliance + money checks), not generic write-through.
   return booking;
 };
 /** Insert a server-created booking into the in-memory store (no write-through). */
@@ -328,7 +329,9 @@ export const applyDemoCarry = (
 
 export const updateBooking = (id: string, patch: Partial<Booking>) => {
   const b = state.bookings.find((x) => x.id === id);
-  if (b) { Object.assign(b, patch, { updated_at: new Date().toISOString() }); wt('bookings', b); }
+  // Persistence is handled by callers via dataApi.updateBooking (validated
+  // endpoint); here we only update the in-memory view.
+  if (b) Object.assign(b, patch, { updated_at: new Date().toISOString() });
   return b ?? null;
 };
 

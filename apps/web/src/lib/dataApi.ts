@@ -49,6 +49,8 @@ export const dataApi = {
     req<{ imported: number }>('tenants/import', { method: 'POST', body: JSON.stringify({ rows }) }),
   createBooking: (input: { space_id: string; start_time: string; end_time: string; equipment_ids?: string[]; notes?: string; tenant_id?: string }) =>
     req<{ booking: any }>('bookings', { method: 'POST', body: JSON.stringify(input) }),
+  updateBooking: (id: string, patch: { status?: string; notes?: string }) =>
+    req<{ booking: any }>(`bookings/${id}`, { method: 'POST', body: JSON.stringify(patch) }),
   errors: () => req<{ errors: any[] }>('errors'),
   exportUrl: () => `${API_URL}/api/account/export`,
   deleteAccount: () => req<{ ok: boolean }>('../account/delete', { method: 'POST' }),
