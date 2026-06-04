@@ -16,12 +16,12 @@ export default function PeerNetwork() {
   const benchmarks = [
     { metric: 'Utilization %', you: 78, cohort: 64 },
     { metric: 'Tenant retention %', you: 92, cohort: 81 },
-    { metric: 'Avg tenants', you: activeTenants * 10, cohort: 22 },
+    { metric: 'Avg members', you: activeTenants * 10, cohort: 22 },
   ];
 
   const bestPractices = [
-    { title: 'Tiered membership beats pure hourly', by: 'Operator in Portland, OR', body: 'Switching long-term tenants to monthly blocks cut our admin time 30% and stabilized cash flow.' },
-    { title: 'Run a quarterly tenant showcase', by: 'Operator in Austin, TX', body: 'A public market day for our makers drives leads and gives tenants a sales spike — everyone wins.' },
+    { title: 'Tiered membership beats pure hourly', by: 'Operator in Portland, OR', body: 'Switching long-term members to monthly blocks cut our admin time 30% and stabilized cash flow.' },
+    { title: 'Run a quarterly member showcase', by: 'Operator in Austin, TX', body: 'A public market day for our makers drives leads and gives members a sales spike — everyone wins.' },
     { title: 'Pre-block maintenance windows', by: 'Operator in Madison, WI', body: 'Reserving Friday mornings for equipment service ended surprise downtime complaints.' },
   ];
 

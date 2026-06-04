@@ -45,7 +45,7 @@ export default function AccessControl() {
     <div>
       <PageHeader
         title="Access Control"
-        description="Issue smart-lock credentials per tenant and review the entry log. Integrates with keypad, fob, and app-based locks."
+        description="Issue smart-lock credentials per member and review the entry log. Integrates with keypad, fob, and app-based locks."
         action={<Button onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> Issue credential</Button>}
       />
 
@@ -53,7 +53,7 @@ export default function AccessControl() {
         <div className="lg:col-span-2 overflow-hidden rounded-lg border bg-card shadow-card">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
-              <tr><th className="p-3">Tenant</th><th className="p-3">Lock</th><th className="p-3">Code</th><th className="p-3">Schedule</th><th className="p-3">Status</th><th className="p-3"></th></tr>
+              <tr><th className="p-3">Member</th><th className="p-3">Lock</th><th className="p-3">Code</th><th className="p-3">Schedule</th><th className="p-3">Status</th><th className="p-3"></th></tr>
             </thead>
             <tbody>
               {creds.map((c) => (
@@ -91,7 +91,7 @@ export default function AccessControl() {
       <Modal open={open} onClose={() => setOpen(false)} title="Issue access credential">
         <form onSubmit={issue} className="space-y-3">
           <div>
-            <Label>Tenant</Label>
+            <Label>Member</Label>
             <Select value={form.tenant_id} onChange={(e) => setForm({ ...form, tenant_id: e.target.value })}>
               {memberships.map((m) => <option key={m.tenant_id} value={m.tenant_id}>{getTenantProfile(m.tenant_id)?.business_name ?? getProfile(m.tenant_id)?.full_name}</option>)}
             </Select>

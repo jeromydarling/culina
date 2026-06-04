@@ -52,15 +52,15 @@ export default function Compliance() {
     <div>
       <PageHeader
         title="Compliance"
-        description="Every tenant × required document. Bookings are auto-blocked when a required doc is expired."
-        action={<Button variant="outline" onClick={() => toast.success('Reminder emails sent to tenants with gaps (demo).')}><Mail className="h-4 w-4" /> Email reminders</Button>}
+        description="Every member × required document. Bookings are auto-blocked when a required doc is expired."
+        action={<Button variant="outline" onClick={() => toast.success('A friendly reminder is on its way to members with gaps (demo).')}><Mail className="h-4 w-4" /> Email reminders</Button>}
       />
 
       <div className="overflow-x-auto rounded-lg border bg-card shadow-card">
         <table className="w-full min-w-[640px] text-sm">
           <thead className="border-b bg-muted/50">
             <tr>
-              <th className="p-3 text-left text-xs uppercase tracking-wider text-muted-foreground">Tenant</th>
+              <th className="p-3 text-left text-xs uppercase tracking-wider text-muted-foreground">Member</th>
               {requiredDocs.map((t) => (
                 <th key={t} className="p-3 text-center text-xs font-medium text-muted-foreground">{DOC_TYPE_LABELS[t]}</th>
               ))}

@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Mail, UserPlus, Database } from 'lucide-react';
+import { Mail, UserPlus, Database, Sparkles, PartyPopper } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { PageHeader, Spinner } from '@/components/ui/misc';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,34 @@ import { dataApi, type TenantRow } from '@/lib/dataApi';
 import { isLive } from '@/lib/config';
 import { notifyError } from '@/lib/errors';
 import { formatCents } from '@culina/shared';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
+
+// People, not line items. Warmer words for how someone’s membership is going.
+const statusLabel: Record<string, string> = {
+  active: 'Active',
+  pending: 'Getting set up',
+  suspended: 'Paused',
+  graduated: 'Graduated',
+};
+
+const membershipLabel: Record<string, string> = {
+  hourly: 'Pay-as-you-go',
+  monthly: 'Monthly',
+  annual: 'Annual',
+};
+
+// A small moment worth noticing — just arrived, or an anniversary with you.
+function milestone(start: string | null): { label: string; tone: 'new' | 'anniversary' } | null {
+  if (!start) return null;
+  const days = differenceInDays(new Date(), new Date(start));
+  if (days < 0) return null;
+  if (days <= 30) return { label: 'Just joined', tone: 'new' };
+  const years = Math.floor(days / 365);
+  if (years >= 1 && days % 365 <= 14) return { label: `${years} ${years === 1 ? 'year' : 'years'} 🎉`, tone: 'anniversary' };
+  return null;
+}
+
+const firstName = (full: string | null, email: string) => (full?.trim().split(' ')[0] ?? email.split('@')[0]);
 
 export default function Tenants() {
   const { profile } = useAuth();
@@ -47,15 +74,18 @@ export default function Tenants() {
       .finally(() => setLoading(false));
   }, [kitchen]);
 
+  // Who’s arrived recently — worth a warm hello before anything else.
+  const justJoined = (rows ?? []).filter((r) => milestone(r.start_date)?.tone === 'new');
+
   return (
     <div>
       <PageHeader
-        title="Tenants"
-        description="Your kitchen’s food makers and their membership status."
+        title="Members"
+        description="The makers who call your kitchen home. Keep up with how they’re doing and welcome new ones in."
         action={
           <>
             <Link to="/operator/onboarding"><Button variant="outline"><Database className="h-4 w-4" /> Import</Button></Link>
-            <Button onClick={() => setInvite(true)}><UserPlus className="h-4 w-4" /> Invite tenant</Button>
+            <Button onClick={() => setInvite(true)}><UserPlus className="h-4 w-4" /> Welcome someone in</Button>
           </>
         }
       />
@@ -66,6 +96,21 @@ export default function Tenants() {
         </div>
       )}
 
+      {/* A gentle nudge to say hello to whoever just arrived. */}
+      {justJoined.length > 0 && (
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4">
+          <PartyPopper className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+          <div className="text-sm">
+            <div className="font-semibold text-emerald-900">
+              {justJoined.length === 1
+                ? `${firstName(justJoined[0].full_name, justJoined[0].email)} just joined ${kitchen?.name}.`
+                : `${justJoined.length} makers joined ${kitchen?.name} recently.`}
+            </div>
+            <p className="text-emerald-800/80">A quick welcome note goes a long way in their first few weeks.</p>
+          </div>
+        </div>
+      )}
+
       {loading || !rows ? (
         <div className="grid place-items-center py-16"><Spinner className="h-7 w-7" /></div>
       ) : (
@@ -73,39 +118,49 @@ export default function Tenants() {
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
-                <th className="p-3">Business</th><th className="p-3">Plan</th><th className="p-3">Status</th>
-                <th className="p-3">Started</th><th className="p-3">Revenue est.</th><th className="p-3"></th>
+                <th className="p-3">Member</th><th className="p-3">Membership</th><th className="p-3">Status</th>
+                <th className="p-3">With you since</th><th className="p-3">Annual revenue</th><th className="p-3"></th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
-                  <td className="p-3">
-                    <div className="font-medium">{r.business_name ?? r.full_name}</div>
-                    <div className="text-xs text-muted-foreground">{r.email}</div>
-                  </td>
-                  <td className="p-3 capitalize">{r.membership_type}</td>
-                  <td className="p-3"><Badge variant={statusVariant(r.status)}>{r.status}</Badge></td>
-                  <td className="p-3 text-muted-foreground">{r.start_date ? format(new Date(r.start_date), 'MMM yyyy') : '—'}</td>
-                  <td className="p-3">{r.annual_revenue_estimate ? formatCents(r.annual_revenue_estimate * 100) + '/yr' : '—'}</td>
-                  <td className="p-3 text-right"><Link to={`/operator/tenants/${r.tenant_id}`} className="text-sm font-medium text-primary hover:underline">View →</Link></td>
-                </tr>
-              ))}
+              {rows.map((r) => {
+                const m = milestone(r.start_date);
+                return (
+                  <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
+                    <td className="p-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{r.business_name ?? r.full_name}</span>
+                        {m && (
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${m.tone === 'new' ? 'bg-emerald-100 text-emerald-700' : 'bg-accent/15 text-accent'}`}>
+                            <Sparkles className="h-3 w-3" /> {m.label}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground">{r.email}</div>
+                    </td>
+                    <td className="p-3">{membershipLabel[r.membership_type] ?? r.membership_type}</td>
+                    <td className="p-3"><Badge variant={statusVariant(r.status)}>{statusLabel[r.status] ?? r.status}</Badge></td>
+                    <td className="p-3 text-muted-foreground">{r.start_date ? format(new Date(r.start_date), 'MMM yyyy') : '—'}</td>
+                    <td className="p-3">{r.annual_revenue_estimate ? formatCents(r.annual_revenue_estimate * 100) + '/yr' : '—'}</td>
+                    <td className="p-3 text-right"><Link to={`/operator/tenants/${r.tenant_id}`} className="text-sm font-medium text-primary hover:underline">View →</Link></td>
+                  </tr>
+                );
+              })}
               {rows.length === 0 && (
-                <tr><td colSpan={6} className="p-8 text-center text-sm text-muted-foreground">No tenants yet — import or invite your makers.</td></tr>
+                <tr><td colSpan={6} className="p-8 text-center text-sm text-muted-foreground">No members yet — import your makers or welcome someone in.</td></tr>
               )}
             </tbody>
           </table>
         </div>
       )}
 
-      <Modal open={invite} onClose={() => setInvite(false)} title="Invite a tenant" description="Send an invite link or email.">
-        <form onSubmit={(e) => { e.preventDefault(); setInvite(false); toast.success('Invite sent (demo).'); }} className="space-y-3">
+      <Modal open={invite} onClose={() => setInvite(false)} title="Welcome someone in" description="Send a warm invitation to join your kitchen.">
+        <form onSubmit={(e) => { e.preventDefault(); setInvite(false); toast.success('Invitation on its way (demo).'); }} className="space-y-3">
           <div><Label>Email</Label><Input type="email" required placeholder="maker@business.com" /></div>
           <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
-            <Mail className="h-4 w-4" /> They’ll get a link to join {kitchen?.name}.
+            <Mail className="h-4 w-4" /> They’ll get a friendly note with a link to join {kitchen?.name}.
           </div>
-          <Button type="submit" className="w-full">Send invite</Button>
+          <Button type="submit" className="w-full">Send invitation</Button>
         </form>
       </Modal>
     </div>

@@ -24,7 +24,7 @@ const CONFIGS: Record<'operator' | 'tenant', Config> = {
     steps: ONBOARDING_STEPS,
     onboardingPath: '/operator/onboarding',
     welcomeTitle: 'Welcome to Culina!',
-    welcomeBody: "Let's bring your existing kitchen data in and get you ready to fill bookings and grow revenue — yours and your tenants'. The guided setup takes about 5 minutes.",
+    welcomeBody: "Let's bring your existing kitchen data in and get you ready to fill bookings and grow revenue — yours and your members'. The guided setup takes about 5 minutes.",
   },
   tenant: {
     title: 'Launch your food business',

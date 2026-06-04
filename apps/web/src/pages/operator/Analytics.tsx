@@ -83,7 +83,7 @@ export default function Analytics() {
         </Card>
 
         <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>Revenue by tenant</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Revenue by member</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={revenueByTenant} layout="vertical">

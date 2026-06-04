@@ -29,7 +29,7 @@ export default function Announcements() {
 
   return (
     <div>
-      <PageHeader title="Announcements" description="Broadcast updates to your tenants." action={<Button onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> New announcement</Button>} />
+      <PageHeader title="Announcements" description="Broadcast updates to your members." action={<Button onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> New announcement</Button>} />
       {items.length === 0 ? (
         <EmptyState icon={Pin} title="No announcements yet" description="Keep your community in the loop with kitchen updates." />
       ) : (

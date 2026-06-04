@@ -34,7 +34,7 @@ export default function Spaces() {
 
   return (
     <div>
-      <PageHeader title="Spaces & Equipment" description="Define what tenants can book, and set your pricing." />
+      <PageHeader title="Spaces & Equipment" description="Define what members can book, and set your pricing." />
       <Tabs tabs={[{ id: 'spaces', label: `Spaces (${spaces.length})` }, { id: 'equipment', label: `Equipment (${equipment.length})` }]} active={tab} onChange={setTab} />
 
       {tab === 'spaces' && (

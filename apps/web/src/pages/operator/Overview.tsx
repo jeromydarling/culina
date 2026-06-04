@@ -46,7 +46,7 @@ export default function Overview() {
         action={
           <>
             <Link to="/operator/calendar"><Button><Plus className="h-4 w-4" /> New booking</Button></Link>
-            <Link to="/operator/tenants"><Button variant="outline"><UserPlus className="h-4 w-4" /> Invite tenant</Button></Link>
+            <Link to="/operator/tenants"><Button variant="outline"><UserPlus className="h-4 w-4" /> Welcome someone in</Button></Link>
           </>
         }
       />
@@ -54,7 +54,7 @@ export default function Overview() {
       <GettingStarted role="operator" />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Active tenants" value={String(activeTenants)} icon={Users} hint={`${memberships.length} total`} />
+        <StatCard label="Active members" value={String(activeTenants)} icon={Users} hint={`${memberships.length} total`} />
         <StatCard label="Revenue this month" value={formatCents(monthRevenue)} icon={DollarSign} trend={{ value: '+12%', positive: true }} hint="vs last month" />
         <StatCard label="Bookings today" value={String(todayBookings.length)} icon={CalendarClock} hint="across all stations" />
         <StatCard label="Docs needing attention" value={String(expiringDocs.length)} icon={AlertTriangle} hint="expired or expiring" />

@@ -132,7 +132,7 @@ export default function Calendar() {
       <Modal open={open} onClose={() => setOpen(false)} title="New booking" description="Pricing updates live with the 1.5% platform fee shown separately.">
         <form onSubmit={submit} className="space-y-3">
           <div>
-            <Label>Tenant</Label>
+            <Label>Member</Label>
             <Select value={form.tenant_id} onChange={(e) => setForm({ ...form, tenant_id: e.target.value })}>
               {memberships.map((m) => {
                 const tp = getTenantProfile(m.tenant_id);

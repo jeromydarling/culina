@@ -65,7 +65,7 @@ export default function Invoices() {
       if (isLive()) await dataApi.sendInvoice(id);
       updateInvoice(id, { status: 'sent' });
       force();
-      toast.success(isLive() ? 'Invoice emailed to tenant' : 'Invoice sent (demo)');
+      toast.success(isLive() ? 'Invoice emailed to member' : 'Invoice sent (demo)');
     } catch (err) {
       notifyError(err);
     } finally {
@@ -87,7 +87,7 @@ export default function Invoices() {
         <div className="overflow-hidden rounded-lg border bg-card shadow-card">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
-              <tr><th className="p-3">Invoice</th><th className="p-3">Tenant</th><th className="p-3">Due</th><th className="p-3">Fee</th><th className="p-3">Total</th><th className="p-3">Status</th><th className="p-3"></th></tr>
+              <tr><th className="p-3">Invoice</th><th className="p-3">Member</th><th className="p-3">Due</th><th className="p-3">Fee</th><th className="p-3">Total</th><th className="p-3">Status</th><th className="p-3"></th></tr>
             </thead>
             <tbody>
               {invoices.map((inv) => {
@@ -115,7 +115,7 @@ export default function Invoices() {
       <Modal open={open} onClose={() => setOpen(false)} title="Create invoice">
         <form onSubmit={create} className="space-y-3">
           <div>
-            <Label>Tenant</Label>
+            <Label>Member</Label>
             <Select value={form.tenant_id} onChange={(e) => setForm({ ...form, tenant_id: e.target.value })}>
               {memberships.map((m) => <option key={m.tenant_id} value={m.tenant_id}>{getTenantProfile(m.tenant_id)?.business_name ?? getProfile(m.tenant_id)?.full_name}</option>)}
             </Select>
