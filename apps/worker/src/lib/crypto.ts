@@ -70,3 +70,13 @@ export async function verifyPassword(password: string, hash: string, salt: strin
 export function uuid(): string {
   return crypto.randomUUID();
 }
+
+/** A URL-safe random token (default 256-bit) for password-reset / verification links. */
+export function randomToken(bytes = 32): string {
+  return b64urlEncode(crypto.getRandomValues(new Uint8Array(bytes)));
+}
+
+/** SHA-256 hex digest — we store only the hash of a token, never the token itself. */
+export async function sha256Hex(input: string): Promise<string> {
+  return toHex(await crypto.subtle.digest('SHA-256', enc.encode(input)));
+}

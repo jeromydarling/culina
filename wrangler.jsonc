@@ -57,9 +57,19 @@
   // Cloudflare Images — on-the-fly thumbnails for /api/files?w= (lean WebP).
   "images": { "binding": "IMAGES" },
 
+  // Cloudflare Email Service (Email Sending) — outbound transactional email
+  // (password resets, confirmations). Requires the Workers Paid plan, Email
+  // Service enabled on the account, and the culina.life sending domain verified
+  // (SPF/DKIM). Until that's done, leave this commented: sendEmail() degrades to
+  // Resend (if RESEND_API_KEY is set) and finally to a no-op (logs only), so
+  // deploys never break. Uncomment to go live.
+  // "send_email": [{ "name": "EMAIL", "remote": true }],
+
   "vars": {
     "ANTHROPIC_MODEL": "claude-3-5-sonnet-20241022",
     "STRIPE_PLATFORM_FEE_PERCENT": "1.5",
+    "EMAIL_FROM": "no-reply@culina.life",
+    "APP_URL": "https://culina.life",
     "ALLOWED_ORIGIN": "*"
   }
 }

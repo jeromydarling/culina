@@ -12,6 +12,11 @@ export interface Env {
   STRIPE_PLATFORM_FEE_PERCENT?: string;
   RESEND_API_KEY?: string;
   RESEND_FROM_EMAIL?: string;
+  // Cloudflare Email Service (Email Sending) binding — outbound transactional
+  // email. Optional: when unbound, sendEmail() falls back to Resend, then no-op.
+  EMAIL?: { send: (message: { to: string | string[]; from: string; subject: string; html?: string; text?: string; reply_to?: string }) => Promise<unknown> };
+  EMAIL_FROM?: string;
+  APP_URL?: string;
   ALLOWED_ORIGIN?: string;
 }
 

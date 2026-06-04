@@ -27,4 +27,9 @@ export const authApi = {
   login: (email: string, password: string) =>
     req<{ token: string; profile: Profile }>('login', { email, password }),
   me: () => req<{ profile: Profile }>('me', undefined, true),
+  forgot: (email: string) => req<{ ok: boolean }>('forgot', { email }),
+  reset: (token: string, password: string) =>
+    req<{ token: string; profile: Profile }>('reset', { token, password }),
+  verifyEmail: (token: string) => req<{ ok: boolean }>('verify', { token }),
+  resendVerification: () => req<{ ok: boolean; already_verified?: boolean }>('resend-verification', {}, true),
 };

@@ -13,6 +13,8 @@ interface AuthState {
   isDemo: boolean;
   login: (email: string, password: string) => Promise<{ error?: string }>;
   signup: (email: string, password: string, role: UserRole, fullName: string, businessName?: string, carry?: DemoCarry) => Promise<{ error?: string }>;
+  /** Start a LIVE session from a token + profile already obtained (e.g. password reset). */
+  establishSession: (token: string, profile: Profile) => Promise<void>;
   loginAsDemo: (role: UserRole) => void;
   logout: () => Promise<void>;
 }
@@ -140,6 +142,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  /** Establish a LIVE session from credentials we already hold (password reset). */
+  const establishSession = React.useCallback(async (token: string, p: Profile) => {
+    setSessionMode('live');
+    setToken(token);
+    await hydrateFromApi(p);
+    setProfile(p);
+  }, []);
+
   const logout = React.useCallback(async () => {
     clearToken();
     localStorage.removeItem(DEMO_KEY);
@@ -149,7 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.assign('/');
   }, []);
 
-  const value: AuthState = { profile, loading, isDemo: isDemo(), login, signup, loginAsDemo, logout };
+  const value: AuthState = { profile, loading, isDemo: isDemo(), login, signup, establishSession, loginAsDemo, logout };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
