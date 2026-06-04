@@ -1,6 +1,6 @@
 import { type Env, json, error } from '../lib/http';
 import { authenticate } from '../auth';
-import { uuid } from '../lib/crypto';
+import { uuid, randomToken, sha256Hex } from '../lib/crypto';
 import { sendEmail, templates } from '../email';
 import { checkAiQuota } from '../lib/ratelimit';
 
@@ -151,6 +151,16 @@ export async function handleData(path: string, request: Request, env: Env): Prom
       const equipment = (await all(env, 'SELECT * FROM kitchen_equipment WHERE kitchen_id = ? AND is_active = 1', k.id)).map((r) => toApp('kitchen_equipment', r));
       return json({ kitchen: toApp('kitchens', k), spaces, equipment }, env);
     }
+    // Public invite lookup (by token) → prefills the sign-up page.
+    const invMatch = path.match(/^invite\/(.+)$/);
+    if (invMatch) {
+      const row = await db
+        .prepare('SELECT i.email, i.full_name, i.business_name, i.status, i.expires_at, k.name AS kitchen_name FROM invites i JOIN kitchens k ON k.id = i.kitchen_id WHERE i.token_hash = ?')
+        .bind(await sha256Hex(decodeURIComponent(invMatch[1])))
+        .first<any>();
+      if (!row || row.status !== 'pending' || row.expires_at < new Date().toISOString()) return json({ invite: null }, env);
+      return json({ invite: { email: row.email, full_name: row.full_name, business_name: row.business_name, kitchen_name: row.kitchen_name } }, env);
+    }
     const sf = path.match(/^storefront\/(.+)$/);
     if (sf) {
       const slug = decodeURIComponent(sf[1]);
@@ -206,6 +216,13 @@ export async function handleData(path: string, request: Request, env: Env): Prom
       }
     } catch (e) {
       console.error('[lead] notify failed:', (e as Error).message);
+    }
+
+    // Warm acknowledgement to the person who reached out (best-effort).
+    try {
+      await sendEmail(env, email, `Thanks for reaching out to ${kitchen.name}`, templates.inquiryAck({ kitchen: kitchen.name, name: fullName }));
+    } catch (e) {
+      console.error('[lead] ack failed:', (e as Error).message);
     }
     return json({ ok: true, id: leadId }, env);
   }
@@ -438,6 +455,56 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     await db.prepare('UPDATE leads SET status = ?, notes = ?, updated_at = ? WHERE id = ?').bind(status, notes, now, lead.id).run();
     const updated = await db.prepare('SELECT * FROM leads WHERE id = ?').bind(lead.id).first();
     return json({ ok: true, sent, lead: toApp('leads', updated) }, env);
+  }
+
+  // ── Convert a lead into a member: add now, or invite them to join ──────
+  const leadConvert = path.match(/^leads\/([^/]+)\/convert$/);
+  if (leadConvert && request.method === 'POST') {
+    const lead = await db.prepare('SELECT * FROM leads WHERE id = ?').bind(leadConvert[1]).first<any>();
+    if (!lead) return error('Lead not found', env, 404);
+    if (!(profile.role === 'admin' || (await operatesKitchen(env, lead.kitchen_id, profile.id)))) return error('Forbidden', env, 403);
+    const body: any = await request.json().catch(() => ({}));
+    const membershipType = ['hourly', 'monthly', 'annual'].includes(body.membership_type) ? body.membership_type : 'monthly';
+    const kitchenRow = await db.prepare('SELECT name FROM kitchens WHERE id = ?').bind(lead.kitchen_id).first<any>();
+    const kitchenName = kitchenRow?.name ?? 'the kitchen';
+    const now = new Date().toISOString();
+    const base = appBase(env, request);
+    const note = (line: string) => (lead.notes ? `${lead.notes}\n[${now.slice(0, 10)}] ${line}` : `[${now.slice(0, 10)}] ${line}`);
+
+    const existingUser = await db.prepare('SELECT id FROM users WHERE email = ?').bind(lead.email).first<{ id: string }>();
+    if (existingUser) {
+      // They already have an account — welcome them in as a member now.
+      let membership = await db.prepare('SELECT id FROM memberships WHERE tenant_id = ? AND kitchen_id = ?').bind(existingUser.id, lead.kitchen_id).first<{ id: string }>();
+      if (!membership) {
+        const mid = uuid();
+        await db.prepare(`INSERT INTO memberships (id, kitchen_id, tenant_id, status, membership_type, start_date, notes, created_at, updated_at) VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?)`)
+          .bind(mid, lead.kitchen_id, existingUser.id, membershipType, now.slice(0, 10), 'Welcomed from an inquiry.', now, now).run();
+        membership = { id: mid };
+      }
+      await db.prepare("UPDATE leads SET status = 'converted', converted_membership_id = ?, notes = ?, updated_at = ? WHERE id = ?").bind(membership.id, note('Welcomed as a member'), now, lead.id).run();
+      try {
+        await db.prepare('INSERT INTO notifications (id, user_id, title, body, type, is_read, action_url, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)')
+          .bind(uuid(), existingUser.id, `Welcome to ${kitchenName}`, 'You’ve been welcomed in as a member.', 'membership', '/tenant', now).run();
+        await sendEmail(env, lead.email, `Welcome to ${kitchenName}`, templates.addedToKitchen({ kitchen: kitchenName, name: lead.full_name, loginUrl: `${base}/auth/login` }));
+      } catch (e) {
+        console.error('[convert] welcome failed:', (e as Error).message);
+      }
+      const updatedLead = await db.prepare('SELECT * FROM leads WHERE id = ?').bind(lead.id).first();
+      return json({ ok: true, mode: 'added', lead: toApp('leads', updatedLead) }, env);
+    }
+
+    // No account yet — send a warm invitation to join.
+    const token = randomToken();
+    await db.prepare(`INSERT INTO invites (id, kitchen_id, lead_id, email, full_name, business_name, membership_type, token_hash, status, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`)
+      .bind(uuid(), lead.kitchen_id, lead.id, lead.email, lead.full_name, lead.business_name, membershipType, await sha256Hex(token), new Date(Date.now() + 14 * 864e5).toISOString(), now).run();
+    await db.prepare("UPDATE leads SET status = 'converted', notes = ?, updated_at = ? WHERE id = ?").bind(note('Invitation to join sent'), now, lead.id).run();
+    try {
+      await sendEmail(env, lead.email, `You’re invited to join ${kitchenName}`, templates.inviteToJoin({ kitchen: kitchenName, name: lead.full_name, signupUrl: `${base}/auth/signup?invite=${token}` }));
+    } catch (e) {
+      console.error('[convert] invite email failed:', (e as Error).message);
+    }
+    const updatedLead = await db.prepare('SELECT * FROM leads WHERE id = ?').bind(lead.id).first();
+    return json({ ok: true, mode: 'invited', lead: toApp('leads', updatedLead) }, env);
   }
 
   // ── Send an invoice to its tenant by email (operator/admin only) ──────

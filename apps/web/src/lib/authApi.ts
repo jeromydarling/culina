@@ -22,8 +22,8 @@ async function req<T>(path: string, body?: unknown, auth = false): Promise<T> {
 }
 
 export const authApi = {
-  signup: (email: string, password: string, role: UserRole, fullName: string) =>
-    req<{ token: string; profile: Profile }>('signup', { email, password, role, full_name: fullName }),
+  signup: (email: string, password: string, role: UserRole, fullName: string, invite?: string) =>
+    req<{ token: string; profile: Profile }>('signup', { email, password, role, full_name: fullName, invite }),
   login: (email: string, password: string) =>
     req<{ token: string; profile: Profile }>('login', { email, password }),
   me: () => req<{ profile: Profile }>('me', undefined, true),

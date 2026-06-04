@@ -149,12 +149,12 @@ export default function KitchenProfile() {
 
         <aside className="lg:col-span-1">
           <div className="sticky top-24 rounded-2xl border bg-card p-6 shadow-card">
-            <div className="font-heading text-lg font-semibold">Request space</div>
-            <p className="mt-1 text-sm text-muted-foreground">Tell {kitchen.name} about your business.</p>
+            <div className="font-heading text-lg font-semibold">Reach out</div>
+            <p className="mt-1 text-sm text-muted-foreground">Tell {kitchen.name} a little about what you make — they’d love to hear from you.</p>
             {sent ? (
               <div className="mt-6 rounded-lg bg-emerald-50 p-4 text-center text-sm text-emerald-700">
                 <Check className="mx-auto mb-2 h-6 w-6" />
-                Your request was sent. Watch your inbox!
+                Thanks! {kitchen.name} has your note and will be in touch. We’ve sent a copy to your inbox.
               </div>
             ) : (
               <form onSubmit={submitLead} className="mt-4 space-y-3">
@@ -163,7 +163,7 @@ export default function KitchenProfile() {
                 <div><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
                 <div><Label>Business name</Label><Input value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} /></div>
                 <div><Label>Message</Label><Textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="What do you make, and what space do you need?" /></div>
-                <Button type="submit" className="w-full" disabled={busy}>{busy ? 'Sending…' : 'Send request'}</Button>
+                <Button type="submit" className="w-full" disabled={busy}>{busy ? 'Sending…' : 'Send message'}</Button>
               </form>
             )}
             <div className="mt-5 space-y-2 border-t pt-4 text-sm text-muted-foreground">

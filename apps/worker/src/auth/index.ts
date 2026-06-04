@@ -77,7 +77,7 @@ export async function handleAuth(action: string, request: Request, env: Env): Pr
   const body: any = await request.json().catch(() => ({}));
 
   if (action === 'signup') {
-    const { email, password, role, full_name } = body;
+    const { email, password, role, full_name, invite } = body;
     if (!email || !password) return error('Email and password required', env, 400);
     const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
     if (existing) return error('An account with that email already exists', env, 409);
@@ -85,12 +85,32 @@ export async function handleAuth(action: string, request: Request, env: Env): Pr
     const id = uuid();
     const { hash, salt } = await hashPassword(password);
     const now = new Date().toISOString();
-    const safeRole = ['operator', 'tenant', 'admin'].includes(role) ? role : 'tenant';
+    // An invitation always creates a member (tenant) account.
+    const safeRole = invite ? 'tenant' : ['operator', 'tenant', 'admin'].includes(role) ? role : 'tenant';
 
     await env.DB.batch([
       env.DB.prepare('INSERT INTO users (id, email, password_hash, salt, created_at) VALUES (?, ?, ?, ?, ?)').bind(id, email, hash, salt, now),
       env.DB.prepare('INSERT INTO profiles (id, email, full_name, role, created_at) VALUES (?, ?, ?, ?, ?)').bind(id, email, full_name ?? null, safeRole, now),
     ]);
+
+    // Accept a membership invitation, if one was provided (best-effort).
+    if (invite) {
+      try {
+        const row = await env.DB.prepare('SELECT id, kitchen_id, lead_id, membership_type, status, expires_at FROM invites WHERE token_hash = ?').bind(await sha256Hex(invite)).first<any>();
+        if (row && row.status === 'pending' && row.expires_at >= now) {
+          let mid = (await env.DB.prepare('SELECT id FROM memberships WHERE tenant_id = ? AND kitchen_id = ?').bind(id, row.kitchen_id).first<{ id: string }>())?.id;
+          if (!mid) {
+            mid = uuid();
+            await env.DB.prepare(`INSERT INTO memberships (id, kitchen_id, tenant_id, status, membership_type, start_date, notes, created_at, updated_at) VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?)`)
+              .bind(mid, row.kitchen_id, id, row.membership_type, now.slice(0, 10), 'Joined via invitation.', now, now).run();
+          }
+          await env.DB.prepare("UPDATE invites SET status = 'accepted', accepted_at = ?, membership_id = ? WHERE id = ?").bind(now, mid, row.id).run();
+          if (row.lead_id) await env.DB.prepare("UPDATE leads SET status = 'converted', converted_membership_id = ?, updated_at = ? WHERE id = ?").bind(mid, now, row.lead_id).run();
+        }
+      } catch (e) {
+        console.error('[signup] invite accept failed:', (e as Error).message);
+      }
+    }
 
     // Welcome + confirm-your-email (best-effort: never block signup on email).
     try {

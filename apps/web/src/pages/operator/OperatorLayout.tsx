@@ -21,7 +21,7 @@ const nav: NavItem[] = [
   { to: '/operator', label: 'Overview', icon: LayoutDashboard },
   { to: '/operator/calendar', label: 'Calendar', icon: Calendar },
   { to: '/operator/tenants', label: 'Tenants', icon: Users },
-  { to: '/operator/leads', label: 'Leads CRM', icon: KanbanSquare },
+  { to: '/operator/leads', label: 'Inquiries', icon: KanbanSquare },
   { to: '/operator/invoices', label: 'Invoices', icon: FileText },
   { to: '/operator/compliance', label: 'Compliance', icon: ShieldCheck },
   { to: '/operator/spaces', label: 'Spaces & Equipment', icon: Boxes },

@@ -38,6 +38,8 @@ export const dataApi = {
   bootstrap: () => req<{ kitchen: Record<string, unknown> | null; tenants: TenantRow[] }>('bootstrap'),
   kitchens: () => req<{ kitchens: any[] }>('kitchens'), // public listed-kitchen directory
   kitchenBySlug: (slug: string) => req<{ kitchen: any | null; spaces?: any[]; equipment?: any[] }>(`kitchen/${encodeURIComponent(slug)}`),
+  // Public: look up a membership invitation by token (prefills sign-up).
+  invite: (token: string) => req<{ invite: { email: string; full_name: string | null; business_name: string | null; kitchen_name: string } | null }>(`invite/${encodeURIComponent(token)}`),
   hydrate: async () => {
     const data = await req<Record<string, any[]>>('hydrate');
     // Seed revision tokens so write-through can detect concurrent edits.
@@ -62,6 +64,10 @@ export const dataApi = {
   // Operator/admin: email a lead directly from the CRM (replies go to the operator).
   contactLead: (id: string, subject: string, message: string) =>
     req<{ ok: boolean; sent: boolean; lead: any }>(`leads/${id}/contact`, { method: 'POST', body: JSON.stringify({ subject, message }) }),
+  // Operator/admin: welcome a lead in — adds a membership now (existing account)
+  // or sends an invitation to join (new person).
+  convertLead: (id: string, membershipType: string) =>
+    req<{ ok: boolean; mode: 'added' | 'invited'; lead: any }>(`leads/${id}/convert`, { method: 'POST', body: JSON.stringify({ membership_type: membershipType }) }),
   errors: () => req<{ errors: any[] }>('errors'),
   exportUrl: () => `${API_URL}/api/account/export`,
   async deleteAccount(): Promise<{ ok: boolean }> {

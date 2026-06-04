@@ -173,22 +173,44 @@ export const templates = {
     }),
   leadInquiry: (o: { kitchen: string; name: string; email: string; phone: string; business: string; message: string; crmUrl: string }) =>
     emailLayout({
-      heading: 'New space inquiry',
-      intro: `Someone is interested in renting space at ${escapeHtml(o.kitchen)}.${detailList([
+      heading: 'Someone would love to use your kitchen',
+      intro: `${escapeHtml(o.name)} reached out about renting space at ${escapeHtml(o.kitchen)}. Here’s what they shared:${detailList([
         ['Name', o.name],
         ['Email', o.email],
         ['Phone', o.phone || '—'],
         ['Business', o.business || '—'],
-        ['Message', o.message || '—'],
+        ['Note', o.message || '—'],
       ])}`,
-      ctaText: 'Open Leads CRM',
+      ctaText: 'See their inquiry',
       ctaUrl: o.crmUrl,
+      outro: 'A warm, quick reply goes a long way — they took the time to reach out.',
     }),
   leadMessage: (o: { kitchen: string; senderName: string; message: string }) =>
     emailLayout({
       heading: `A message from ${escapeHtml(o.kitchen)}`,
       intro: `${escapeHtml(o.senderName)} replied to your inquiry:<br/><br/>${escapeHtml(o.message).replace(/\n/g, '<br/>')}`,
       outro: 'Just reply to this email to continue the conversation directly with them.',
+    }),
+  inquiryAck: (o: { kitchen: string; name: string | null }) =>
+    emailLayout({
+      heading: 'Thanks for reaching out',
+      intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, thanks for your interest in ${escapeHtml(o.kitchen)}. They’ve received your note and will be in touch soon. We’re glad you’re looking for a place to make your food.`,
+      outro: 'Have something to add? Just reply to this email — it goes straight to them.',
+    }),
+  inviteToJoin: (o: { kitchen: string; name: string | null; signupUrl: string }) =>
+    emailLayout({
+      heading: `You’re invited to join ${escapeHtml(o.kitchen)}`,
+      intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, ${escapeHtml(o.kitchen)} would love to welcome you in as a member. Create your account to set up your space, book time, and get started — it only takes a minute.`,
+      ctaText: 'Accept & create your account',
+      ctaUrl: o.signupUrl,
+      outro: 'This invitation link expires in 14 days. We can’t wait to see what you make.',
+    }),
+  addedToKitchen: (o: { kitchen: string; name: string | null; loginUrl: string }) =>
+    emailLayout({
+      heading: `Welcome to ${escapeHtml(o.kitchen)}`,
+      intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, you’ve been welcomed in as a member of ${escapeHtml(o.kitchen)}. Log in any time to book space, manage your documents, and grow your business.`,
+      ctaText: 'Log in to get started',
+      ctaUrl: o.loginUrl,
     }),
 };
 

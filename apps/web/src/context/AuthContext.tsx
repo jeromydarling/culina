@@ -12,7 +12,7 @@ interface AuthState {
   loading: boolean;
   isDemo: boolean;
   login: (email: string, password: string) => Promise<{ error?: string }>;
-  signup: (email: string, password: string, role: UserRole, fullName: string, businessName?: string, carry?: DemoCarry) => Promise<{ error?: string }>;
+  signup: (email: string, password: string, role: UserRole, fullName: string, businessName?: string, carry?: DemoCarry, invite?: string) => Promise<{ error?: string }>;
   /** Start a LIVE session from a token + profile already obtained (e.g. password reset). */
   establishSession: (token: string, profile: Profile) => Promise<void>;
   loginAsDemo: (role: UserRole) => void;
@@ -116,10 +116,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /** Sign-up → real LIVE account. */
   const signup = React.useCallback(
-    async (email: string, password: string, role: UserRole, fullName: string, businessName?: string, carry?: DemoCarry): Promise<{ error?: string }> => {
+    async (email: string, password: string, role: UserRole, fullName: string, businessName?: string, carry?: DemoCarry, invite?: string): Promise<{ error?: string }> => {
       setSessionMode('live');
       try {
-        const { token, profile: p } = await authApi.signup(email, password, role, fullName);
+        const { token, profile: p } = await authApi.signup(email, password, role, fullName, invite);
         setToken(token);
         await hydrateFromApi(p);
         // Carry a business/kitchen name from a converted demo into the real account.
