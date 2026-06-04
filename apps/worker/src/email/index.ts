@@ -88,6 +88,7 @@ export function emailLayout(opts: { heading: string; intro: string; ctaText?: st
           </table>
         </td></tr>
         <tr><td style="padding:18px 28px;border-top:1px solid #eee;color:#9CA3AF;font-size:12px;line-height:1.6">
+          Questions? Just reply to this email — a real person reads them.<br/>
           You’re receiving this because of activity on your Culina account.<br/>
           Culina — tools for shared kitchens and the makers inside them.
         </td></tr>
@@ -121,7 +122,66 @@ export const templates = {
       ctaUrl: resetUrl,
       outro: 'This link expires in 1 hour. If you didn’t request a reset, you can safely ignore this email — your password won’t change.',
     }),
+  bookingConfirmed: (o: { name: string | null; kitchen: string; space: string; when: string; total: string; manageUrl: string }) =>
+    emailLayout({
+      heading: 'Your booking is confirmed',
+      intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, your space is reserved.${detailList([
+        ['Kitchen', o.kitchen],
+        ['Space', o.space],
+        ['When', o.when],
+        ['Total', o.total],
+      ])}`,
+      ctaText: 'View my bookings',
+      ctaUrl: o.manageUrl,
+      outro: 'Need to make a change? Manage or cancel from your bookings any time.',
+    }),
+  bookingStatus: (o: { name: string | null; kitchen: string; space: string; when: string; status: string; manageUrl: string }) =>
+    emailLayout({
+      heading: o.status === 'cancelled' ? 'Your booking was cancelled' : `Your booking is ${escapeHtml(o.status)}`,
+      intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, here’s an update on your reservation.${detailList([
+        ['Kitchen', o.kitchen],
+        ['Space', o.space],
+        ['When', o.when],
+        ['Status', o.status],
+      ])}`,
+      ctaText: 'View my bookings',
+      ctaUrl: o.manageUrl,
+    }),
+  bookingOperatorAlert: (o: { kitchen: string; space: string; renter: string; when: string; total: string; calendarUrl: string }) =>
+    emailLayout({
+      heading: 'New booking in your kitchen',
+      intro: `A space was just reserved.${detailList([
+        ['Renter', o.renter],
+        ['Space', o.space],
+        ['When', o.when],
+        ['Total', o.total],
+      ])}`,
+      ctaText: 'Open calendar',
+      ctaUrl: o.calendarUrl,
+    }),
+  invoiceNew: (o: { name: string | null; month: string; total: string; dueDate: string; viewUrl: string }) =>
+    emailLayout({
+      heading: `Your ${escapeHtml(o.month)} invoice is ready`,
+      intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, your kitchen booking invoice is ready to review.${detailList([
+        ['Period', o.month],
+        ['Amount', o.total],
+        ['Due', o.dueDate],
+      ])}`,
+      ctaText: 'View invoice',
+      ctaUrl: o.viewUrl,
+    }),
 };
+
+/** Render a compact key/value detail block for transactional emails. */
+function detailList(rows: [string, string][]): string {
+  const items = rows
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:3px 0;color:#6B7280;font-size:13px;width:90px">${escapeHtml(k)}</td><td style="padding:3px 0;color:#1A1A1A;font-size:13px;font-weight:600">${escapeHtml(v)}</td></tr>`,
+    )
+    .join('');
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:14px 0 2px">${items}</table>`;
+}
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));

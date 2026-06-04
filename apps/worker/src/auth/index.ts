@@ -42,6 +42,17 @@ interface ProfileRow {
   created_at: string;
 }
 
+/** Load a client-facing profile (joins users.email_verified onto the profile row). */
+async function loadProfile(env: Env, id: string): Promise<(ProfileRow & { email_verified: boolean }) | null> {
+  const row = await env.DB!.prepare(
+    `SELECT p.id, p.email, p.full_name, p.role, p.avatar_url, p.phone, p.created_at, COALESCE(u.email_verified, 0) AS email_verified
+     FROM profiles p LEFT JOIN users u ON u.id = p.id WHERE p.id = ?`,
+  )
+    .bind(id)
+    .first<ProfileRow & { email_verified: number }>();
+  return row ? { ...row, email_verified: !!row.email_verified } : null;
+}
+
 /** Resolve the authenticated profile from the Authorization: Bearer header. */
 export async function authenticate(request: Request, env: Env): Promise<ProfileRow | null> {
   if (!env.DB) return null;
@@ -58,9 +69,9 @@ export async function handleAuth(action: string, request: Request, env: Env): Pr
   if (!env.DB) return error('Database not configured (bind a D1 database named "culina").', env, 503);
 
   if (action === 'me') {
-    const profile = await authenticate(request, env);
-    if (!profile) return error('Unauthorized', env, 401);
-    return json({ profile }, env);
+    const authed = await authenticate(request, env);
+    if (!authed) return error('Unauthorized', env, 401);
+    return json({ profile: (await loadProfile(env, authed.id)) ?? authed }, env);
   }
 
   const body: any = await request.json().catch(() => ({}));
@@ -91,7 +102,7 @@ export async function handleAuth(action: string, request: Request, env: Env): Pr
     }
 
     const token = await signJwt({ sub: id, role: safeRole }, await getAuthSecret(env));
-    return json({ token, profile: { id, email, full_name: full_name ?? null, role: safeRole, avatar_url: null, phone: null, created_at: now } }, env);
+    return json({ token, profile: { id, email, full_name: full_name ?? null, role: safeRole, avatar_url: null, phone: null, created_at: now, email_verified: false } }, env);
   }
 
   if (action === 'login') {
@@ -102,9 +113,7 @@ export async function handleAuth(action: string, request: Request, env: Env): Pr
     if (!user || !(await verifyPassword(password, user.password_hash, user.salt))) {
       return error('Invalid email or password', env, 401);
     }
-    const profile = await env.DB.prepare('SELECT id, email, full_name, role, avatar_url, phone, created_at FROM profiles WHERE id = ?')
-      .bind(user.id)
-      .first<ProfileRow>();
+    const profile = await loadProfile(env, user.id);
     const token = await signJwt({ sub: user.id, role: profile?.role ?? 'tenant' }, await getAuthSecret(env));
     return json({ token, profile }, env);
   }
@@ -137,9 +146,7 @@ export async function handleAuth(action: string, request: Request, env: Env): Pr
 
     const { hash, salt } = await hashPassword(password);
     await env.DB.prepare('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?').bind(hash, salt, userId).run();
-    const profile = await env.DB.prepare('SELECT id, email, full_name, role, avatar_url, phone, created_at FROM profiles WHERE id = ?')
-      .bind(userId)
-      .first<ProfileRow>();
+    const profile = await loadProfile(env, userId);
     const jwt = await signJwt({ sub: userId, role: profile?.role ?? 'tenant' }, await getAuthSecret(env));
     return json({ token: jwt, profile }, env);
   }

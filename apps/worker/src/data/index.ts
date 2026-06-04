@@ -1,9 +1,22 @@
 import { type Env, json, error } from '../lib/http';
 import { authenticate } from '../auth';
 import { uuid } from '../lib/crypto';
+import { sendEmail, templates } from '../email';
 
 const PLATFORM_FEE_PCT = 1.5;
 const MARKETPLACE_COMMISSION_PCT = 5;
+
+const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+const appBase = (env: Env, request: Request) => (env.APP_URL || new URL(request.url).origin).replace(/\/$/, '');
+
+/** Human-readable booking window, e.g. "Mon, Jun 9 · 9:00 AM – 1:00 PM". */
+function formatWindow(startIso: string, endIso: string): string {
+  const s = new Date(startIso);
+  const e = new Date(endIso);
+  const day = s.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const t = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' });
+  return `${day} · ${t(s)} – ${t(e)}`;
+}
 
 /** Per-table field metadata for converting between the app shape and SQLite. */
 const BOOL_FIELDS: Record<string, string[]> = {
@@ -271,6 +284,33 @@ export async function handleData(path: string, request: Request, env: Env): Prom
       .run();
 
     const created = await db.prepare('SELECT * FROM bookings WHERE id = ?').bind(id).first();
+
+    // Confirmation emails (best-effort; never block the booking).
+    try {
+      const [renter, kitchenRow] = await Promise.all([
+        db.prepare('SELECT email, full_name FROM profiles WHERE id = ?').bind(tenantId).first<any>(),
+        db.prepare('SELECT name, operator_id FROM kitchens WHERE id = ?').bind(kitchenId).first<any>(),
+      ]);
+      const when = formatWindow(start.toISOString(), end.toISOString());
+      const total = money(subtotal + fee);
+      const base = appBase(env, request);
+      const sends: Promise<unknown>[] = [];
+      if (renter?.email) {
+        sends.push(sendEmail(env, renter.email, 'Your Culina booking is confirmed',
+          templates.bookingConfirmed({ name: renter.full_name, kitchen: kitchenRow?.name ?? 'the kitchen', space: space.name, when, total, manageUrl: `${base}/tenant/bookings` })));
+      }
+      if (kitchenRow?.operator_id && kitchenRow.operator_id !== tenantId) {
+        const op = await db.prepare('SELECT email FROM profiles WHERE id = ?').bind(kitchenRow.operator_id).first<any>();
+        if (op?.email) {
+          sends.push(sendEmail(env, op.email, 'New booking in your kitchen',
+            templates.bookingOperatorAlert({ kitchen: kitchenRow.name ?? 'your kitchen', space: space.name, renter: renter?.full_name ?? renter?.email ?? 'A renter', when, total, calendarUrl: `${base}/operator/calendar` })));
+        }
+      }
+      await Promise.allSettled(sends);
+    } catch (e) {
+      console.error('[booking] confirmation email failed:', (e as Error).message);
+    }
+
     return json({ booking: toApp('bookings', created) }, env);
   }
 
@@ -292,6 +332,24 @@ export async function handleData(path: string, request: Request, env: Env): Prom
       .bind(body.status ?? null, body.notes ?? null, new Date().toISOString(), bookingId)
       .run();
     const updated = await db.prepare('SELECT * FROM bookings WHERE id = ?').bind(bookingId).first();
+
+    // Email the renter when a booking is confirmed or cancelled (best-effort).
+    try {
+      if (body.status && body.status !== existing.status && (body.status === 'confirmed' || body.status === 'cancelled')) {
+        const [renter, kitchenRow, sp] = await Promise.all([
+          db.prepare('SELECT email, full_name FROM profiles WHERE id = ?').bind(existing.tenant_id).first<any>(),
+          db.prepare('SELECT name FROM kitchens WHERE id = ?').bind(existing.kitchen_id).first<any>(),
+          db.prepare('SELECT name FROM kitchen_spaces WHERE id = ?').bind(existing.space_id).first<any>(),
+        ]);
+        if (renter?.email) {
+          await sendEmail(env, renter.email, `Your booking is ${body.status}`,
+            templates.bookingStatus({ name: renter.full_name, kitchen: kitchenRow?.name ?? 'the kitchen', space: sp?.name ?? 'your space', when: formatWindow(existing.start_time, existing.end_time), status: body.status, manageUrl: `${appBase(env, request)}/tenant/bookings` }));
+        }
+      }
+    } catch (e) {
+      console.error('[booking] status email failed:', (e as Error).message);
+    }
+
     return json({ booking: toApp('bookings', updated) }, env);
   }
 

@@ -1,5 +1,5 @@
 import { type Env } from '../lib/http';
-import { sendEmail } from '../email';
+import { sendEmail, templates } from '../email';
 import { uuid } from '../lib/crypto';
 
 /**
@@ -99,6 +99,18 @@ export async function runMonthlyInvoicing(env: Env): Promise<{ created: number }
       .prepare('INSERT INTO notifications (id, user_id, title, body, type, is_read, action_url, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)')
       .bind(crypto.randomUUID(), r.tenant_id, 'New invoice ready', `Your ${monthLabel} booking invoice is ready to review.`, 'invoice_due', '/tenant/bookings', new Date().toISOString())
       .run();
+
+    // Email the tenant their new invoice (best-effort).
+    try {
+      const tp = await db.prepare('SELECT email, full_name FROM profiles WHERE id = ?').bind(r.tenant_id).first<any>();
+      if (tp?.email) {
+        const base = (env.APP_URL || 'https://culina.life').replace(/\/$/, '');
+        await sendEmail(env, tp.email, `Your ${monthLabel} Culina invoice`,
+          templates.invoiceNew({ name: tp.full_name, month: monthLabel, total: `$${((subtotal + fee) / 100).toFixed(2)}`, dueDate: due, viewUrl: `${base}/tenant/bookings` }));
+      }
+    } catch (e) {
+      console.error('[invoicing] email failed:', (e as Error).message);
+    }
     created += 1;
   }
   return { created };

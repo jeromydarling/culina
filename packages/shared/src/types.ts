@@ -10,6 +10,8 @@ export interface Profile {
   avatar_url: string | null;
   phone: string | null;
   created_at: string;
+  /** Whether the account's email has been confirmed (live sessions only). */
+  email_verified?: boolean;
 }
 
 export interface Kitchen {
