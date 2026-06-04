@@ -7,6 +7,7 @@ import { SmartImage } from '@/components/SmartImage';
 import { Button } from '@/components/ui/button';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { Spinner } from '@/components/ui/misc';
 import { getKitchenBySlug, listSpaces, listEquipment } from '@/lib/store';
 import { dataApi } from '@/lib/dataApi';
 import { notifyError } from '@/lib/errors';
@@ -14,10 +15,40 @@ import { formatCents, SPACE_TYPE_LABELS } from '@culina/shared';
 
 export default function KitchenProfile() {
   const { slug } = useParams();
-  const kitchen = slug ? getKitchenBySlug(slug) : null;
+  // Seeded/demo kitchens resolve synchronously from the store; live operator
+  // kitchens come from the public API. Prefer the live record when present.
+  const storeKitchen = slug ? getKitchenBySlug(slug) : null;
+  const [remote, setRemote] = React.useState<{ kitchen: any; spaces: any[]; equipment: any[] } | null | undefined>(undefined);
   const [sent, setSent] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [form, setForm] = React.useState({ full_name: '', email: '', phone: '', business_name: '', message: '' });
+
+  React.useEffect(() => {
+    if (!slug) return setRemote(null);
+    let active = true;
+    dataApi
+      .kitchenBySlug(slug)
+      .then((d) => active && setRemote(d.kitchen ? { kitchen: d.kitchen, spaces: d.spaces ?? [], equipment: d.equipment ?? [] } : null))
+      .catch(() => active && setRemote(null));
+    return () => {
+      active = false;
+    };
+  }, [slug]);
+
+  const kitchen = remote?.kitchen ?? storeKitchen;
+
+  // Still resolving and no local match yet → show a spinner instead of "not found".
+  if (remote === undefined && !storeKitchen) {
+    return (
+      <div className="bg-white">
+        <MarketingNav />
+        <div className="grid min-h-[60vh] place-items-center pt-24">
+          <Spinner className="h-8 w-8" />
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!kitchen) {
     return (
@@ -36,8 +67,8 @@ export default function KitchenProfile() {
     );
   }
 
-  const spaces = listSpaces(kitchen.id);
-  const equipment = listEquipment(kitchen.id);
+  const spaces: any[] = remote?.kitchen ? remote.spaces : storeKitchen ? listSpaces(storeKitchen.id) : [];
+  const equipment: any[] = remote?.kitchen ? remote.equipment : storeKitchen ? listEquipment(storeKitchen.id) : [];
 
   async function submitLead(e: React.FormEvent) {
     e.preventDefault();
@@ -82,7 +113,7 @@ export default function KitchenProfile() {
             <h2 className="font-heading text-2xl font-bold">About this kitchen</h2>
             <p className="mt-3 text-muted-foreground">{kitchen.description}</p>
             <div className="mt-4 flex flex-wrap gap-2">
-              {kitchen.amenities.map((a) => (
+              {(kitchen.amenities as string[]).map((a) => (
                 <span key={a} className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-sm"><Check className="h-3.5 w-3.5 text-emerald-600" />{a}</span>
               ))}
             </div>

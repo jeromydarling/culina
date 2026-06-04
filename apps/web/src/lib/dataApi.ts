@@ -37,6 +37,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 export const dataApi = {
   bootstrap: () => req<{ kitchen: Record<string, unknown> | null; tenants: TenantRow[] }>('bootstrap'),
   kitchens: () => req<{ kitchens: any[] }>('kitchens'), // public listed-kitchen directory
+  kitchenBySlug: (slug: string) => req<{ kitchen: any | null; spaces?: any[]; equipment?: any[] }>(`kitchen/${encodeURIComponent(slug)}`),
   hydrate: async () => {
     const data = await req<Record<string, any[]>>('hydrate');
     // Seed revision tokens so write-through can detect concurrent edits.
@@ -58,6 +59,9 @@ export const dataApi = {
   // Operator/admin: email an invoice to its tenant and mark it sent.
   sendInvoice: (id: string) =>
     req<{ ok: boolean; emailed: boolean; invoice: any }>(`invoices/${id}/send`, { method: 'POST', body: JSON.stringify({}) }),
+  // Operator/admin: email a lead directly from the CRM (replies go to the operator).
+  contactLead: (id: string, subject: string, message: string) =>
+    req<{ ok: boolean; sent: boolean; lead: any }>(`leads/${id}/contact`, { method: 'POST', body: JSON.stringify({ subject, message }) }),
   errors: () => req<{ errors: any[] }>('errors'),
   exportUrl: () => `${API_URL}/api/account/export`,
   async deleteAccount(): Promise<{ ok: boolean }> {

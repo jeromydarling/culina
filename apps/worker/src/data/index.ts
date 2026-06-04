@@ -140,6 +140,17 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     if (path === 'learning') return json({ learning: (await all(env, 'SELECT * FROM learning_resources')).map((r) => toApp('learning_resources', r)) }, env);
     if (path === 'mentors') return json({ mentors: await all(env, 'SELECT * FROM mentors') }, env);
     if (path === 'kitchens') return json({ kitchens: (await all(env, 'SELECT * FROM kitchens WHERE is_listed = 1')).map((r) => toApp('kitchens', r)) }, env);
+    // Public kitchen profile by slug (listed only) — powers /kitchen/:slug for
+    // visitors who aren't logged in, including operator-created kitchens.
+    const km = path.match(/^kitchen\/(.+)$/);
+    if (km) {
+      const slug = decodeURIComponent(km[1]);
+      const k = await db.prepare('SELECT * FROM kitchens WHERE slug = ? AND is_listed = 1').bind(slug).first<any>();
+      if (!k) return json({ kitchen: null }, env);
+      const spaces = (await all(env, 'SELECT * FROM kitchen_spaces WHERE kitchen_id = ? AND is_active = 1', k.id)).map((r) => toApp('kitchen_spaces', r));
+      const equipment = (await all(env, 'SELECT * FROM kitchen_equipment WHERE kitchen_id = ? AND is_active = 1', k.id)).map((r) => toApp('kitchen_equipment', r));
+      return json({ kitchen: toApp('kitchens', k), spaces, equipment }, env);
+    }
     const sf = path.match(/^storefront\/(.+)$/);
     if (sf) {
       const slug = decodeURIComponent(sf[1]);
@@ -401,6 +412,32 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     }
 
     return json({ booking: toApp('bookings', updated) }, env);
+  }
+
+  // ── Email a lead directly from the CRM (operator/admin only) ──────────
+  const leadContact = path.match(/^leads\/([^/]+)\/contact$/);
+  if (leadContact && request.method === 'POST') {
+    const lead = await db.prepare('SELECT * FROM leads WHERE id = ?').bind(leadContact[1]).first<any>();
+    if (!lead) return error('Lead not found', env, 404);
+    if (!(profile.role === 'admin' || (await operatesKitchen(env, lead.kitchen_id, profile.id)))) return error('Forbidden', env, 403);
+    const body: any = await request.json().catch(() => ({}));
+    const subject = String(body.subject ?? '').trim().slice(0, 200) || 'A message about your inquiry';
+    const message = String(body.message ?? '').trim().slice(0, 5000);
+    if (!message) return error('Message is required', env, 400);
+
+    const kitchenRow = await db.prepare('SELECT name FROM kitchens WHERE id = ?').bind(lead.kitchen_id).first<any>();
+    // Replies go straight to the operator, not the no-reply mailbox.
+    const sent = await sendEmail(env, lead.email, subject,
+      templates.leadMessage({ kitchen: kitchenRow?.name ?? 'the kitchen', senderName: profile.full_name ?? kitchenRow?.name ?? 'The team', message }),
+      undefined, profile.email);
+
+    const now = new Date().toISOString();
+    const logLine = `[${now.slice(0, 10)}] Emailed: ${subject}`;
+    const notes = lead.notes ? `${lead.notes}\n${logLine}` : logLine;
+    const status = lead.status === 'new' ? 'contacted' : lead.status;
+    await db.prepare('UPDATE leads SET status = ?, notes = ?, updated_at = ? WHERE id = ?').bind(status, notes, now, lead.id).run();
+    const updated = await db.prepare('SELECT * FROM leads WHERE id = ?').bind(lead.id).first();
+    return json({ ok: true, sent, lead: toApp('leads', updated) }, env);
   }
 
   // ── Send an invoice to its tenant by email (operator/admin only) ──────

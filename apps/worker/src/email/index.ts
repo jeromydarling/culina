@@ -10,9 +10,9 @@ const DEFAULT_FROM = 'no-reply@culina.life';
  *   2. Resend (if RESEND_API_KEY is set) — fallback.
  *   3. No-op (logs only) — so demo/unconfigured environments never error.
  */
-export async function sendEmail(env: Env, to: string, subject: string, html: string, text?: string): Promise<boolean> {
+export async function sendEmail(env: Env, to: string, subject: string, html: string, text?: string, replyToOverride?: string): Promise<boolean> {
   const from = env.EMAIL_FROM || DEFAULT_FROM;
-  const replyTo = env.EMAIL_REPLY_TO || undefined;
+  const replyTo = replyToOverride || env.EMAIL_REPLY_TO || undefined;
   const plain = text ?? htmlToText(html);
 
   // 1) Cloudflare Email Service binding
@@ -183,6 +183,12 @@ export const templates = {
       ])}`,
       ctaText: 'Open Leads CRM',
       ctaUrl: o.crmUrl,
+    }),
+  leadMessage: (o: { kitchen: string; senderName: string; message: string }) =>
+    emailLayout({
+      heading: `A message from ${escapeHtml(o.kitchen)}`,
+      intro: `${escapeHtml(o.senderName)} replied to your inquiry:<br/><br/>${escapeHtml(o.message).replace(/\n/g, '<br/>')}`,
+      outro: 'Just reply to this email to continue the conversation directly with them.',
     }),
 };
 
