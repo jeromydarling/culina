@@ -9,6 +9,7 @@ import { Badge, statusVariant } from '@/components/ui/badge';
 import {
   getTenantProfile,
   getMembershipForTenant,
+  getKitchenById,
   listBookings,
   listProducts,
   listOrders,
@@ -19,10 +20,16 @@ import { format } from 'date-fns';
 
 const milestones = ['Launch', 'Grow', 'Graduate'];
 
+const greeting = () => {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+};
+
 export default function Home() {
   const { profile } = useAuth();
   const tp = getTenantProfile(profile!.id);
   const membership = getMembershipForTenant(profile!.id);
+  const kitchen = membership ? getKitchenById(membership.kitchen_id) : null;
   const bookings = listBookings({ tenantId: profile!.id });
   const products = listProducts(profile!.id);
   const orders = listOrders(profile!.id);
@@ -34,12 +41,13 @@ export default function Home() {
   const announcements = membership ? listAnnouncements(membership.kitchen_id) : [];
 
   const currentMilestone = (tp?.years_in_operation ?? 0) >= 3 ? 2 : (tp?.years_in_operation ?? 0) >= 1 ? 1 : 0;
+  const firstName = profile!.full_name?.trim().split(' ')[0] ?? 'there';
 
   return (
     <div>
       <PageHeader
-        title={`${tp?.business_name ?? profile!.full_name}`}
-        description="Your business at a glance."
+        title={`${greeting()}, ${firstName} 👋`}
+        description={kitchen ? `Here’s how ${tp?.business_name ?? 'your business'} is doing at ${kitchen.name} today.` : 'Here’s how your business is doing today.'}
         action={
           <>
             <Link to="/tenant/book"><Button><CalendarPlus className="h-4 w-4" /> Book a space</Button></Link>
@@ -99,8 +107,10 @@ export default function Home() {
             <Link to="/tenant/grants"><Button variant="outline" className="w-full justify-start"><Wallet className="h-4 w-4" /> Find a grant</Button></Link>
             <Link to="/tenant/recipes"><Button variant="outline" className="w-full justify-start"><Plus className="h-4 w-4" /> Cost a recipe</Button></Link>
             <div className="mt-4">
-              <div className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground"><Megaphone className="h-3 w-3" /> From your kitchen</div>
-              {announcements[0] && <div className="mt-2 rounded-lg bg-muted/50 p-3"><div className="text-sm font-medium">{announcements[0].title}</div><div className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{announcements[0].body}</div></div>}
+              <div className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground"><Megaphone className="h-3 w-3" /> {kitchen ? `From ${kitchen.name}` : 'From your kitchen'}</div>
+              {announcements[0]
+                ? <div className="mt-2 rounded-lg bg-muted/50 p-3"><div className="text-sm font-medium">{announcements[0].title}</div><div className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{announcements[0].body}</div></div>
+                : <p className="mt-2 text-xs text-muted-foreground">No notes from your kitchen right now — you’re all caught up.</p>}
             </div>
           </CardContent>
         </Card>

@@ -93,6 +93,7 @@ export const getProfile = (id: string) => state.profiles.find((p) => p.id === id
 // ─── Kitchens ─────────────────────────────────────────────────────────────
 export const listKitchens = () => state.kitchens;
 export const getKitchenBySlug = (slug: string) => state.kitchens.find((k) => k.slug === slug) ?? null;
+export const getKitchenById = (id: string) => state.kitchens.find((k) => k.id === id) ?? null;
 export const getKitchenByOperator = (operatorId: string) =>
   state.kitchens.find((k) => k.operator_id === operatorId) ?? null;
 /** Ensure an operator always has a kitchen (created on first login if missing). */

@@ -65,7 +65,7 @@ export default function Onboarding() {
 
   function joinKitchen() {
     completeStep(profile!.id, 't_kitchen');
-    toast.success(`Request sent to ${getKitchenBySlug(kitchenSlug)?.name ?? 'the kitchen'}`);
+    toast.success(`${getKitchenBySlug(kitchenSlug)?.name ?? 'The kitchen'} will be glad to hear from you — they’ll welcome you in soon.`);
     next();
   }
 
@@ -139,7 +139,7 @@ export default function Onboarding() {
       {/* JOIN KITCHEN */}
       {step === 2 && (
         <div className="space-y-4">
-          <div><h2 className="font-heading text-2xl font-bold">Join your kitchen</h2><p className="text-muted-foreground">Already invited? You’re likely connected. Otherwise pick one from the network.</p></div>
+          <div><h2 className="font-heading text-2xl font-bold">Find your kitchen home</h2><p className="text-muted-foreground">Already been invited? You’re likely connected. Otherwise, choose the kitchen you’d like to call home.</p></div>
           <div className="grid gap-3">
             {kitchens.map((k) => (
               <button key={k.id} onClick={() => setKitchenSlug(k.slug)} className={cn('flex items-center gap-3 rounded-xl border p-4 text-left transition-all', kitchenSlug === k.slug ? 'border-primary ring-1 ring-primary' : 'hover:border-primary/40')}>
