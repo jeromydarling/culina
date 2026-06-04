@@ -6,8 +6,10 @@ import App from './App';
 import { AuthProvider } from './context/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { initTelemetry } from './lib/telemetry';
+import { initSentry } from './lib/sentry';
 import './index.css';
 
+initSentry();
 initTelemetry();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

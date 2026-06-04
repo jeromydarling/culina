@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   /** Public Mapbox token (pk.*) for the kitchen-discovery map. Optional — the
    *  map degrades to a styled static fallback when absent. */
   readonly VITE_MAPBOX_TOKEN?: string;
+  /** Client-side Sentry DSN (publishable). Unset disables Sentry. */
+  readonly VITE_SENTRY_DSN?: string;
 }
 
 interface ImportMeta {

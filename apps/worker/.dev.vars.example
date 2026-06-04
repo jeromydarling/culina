@@ -6,3 +6,6 @@ STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 RESEND_API_KEY=
 RESEND_FROM_EMAIL=hello@culina.app
+# Server-side Sentry DSN — captures worker request + cron errors. Already set as
+# a CF Worker secret in prod; unset locally → Sentry no-ops.
+SENTRY_DSN=

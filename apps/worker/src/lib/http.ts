@@ -28,6 +28,9 @@ export interface Env {
   EMAIL_REPLY_TO?: string;
   APP_URL?: string;
   ALLOWED_ORIGIN?: string;
+  // Server-side Sentry DSN (worker request + cron errors). Set in production
+  // via `wrangler secret put SENTRY_DSN`; unset → Sentry no-ops.
+  SENTRY_DSN?: string;
 }
 
 /** An email address, optionally with a display name (Cloudflare Email Service shape). */

@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/cloudflare';
 import { type Env, corsHeaders, json, error } from './lib/http';
 import { handleAI } from './ai';
 import { handleImage } from './ai/image';
@@ -24,7 +25,7 @@ import { handleUpload, handleFile } from './storage';
  * (to protect the Anthropic key) and Stripe (to protect the secret key and
  * apply the platform fee). Add data routes here as needed.
  */
-export default {
+const handler = {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
       return await route(request, env);
@@ -46,6 +47,26 @@ export default {
     }
   },
 };
+
+// Wrap the FULL { fetch, scheduled } handler — not just fetch — so the daily
+// compliance-sweep and monthly-invoicing cron failures are captured too, not
+// only request errors. Federation-standard tags keep events comparable across
+// the fleet; this no-ops gracefully when SENTRY_DSN is unset.
+export default Sentry.withSentry(
+  (env: Env) => ({
+    dsn: env.SENTRY_DSN,
+    tracesSampleRate: 0.1,
+    sendDefaultPii: false,
+    initialScope: {
+      tags: {
+        app_slug: 'culina',
+        federation_phase: 'pre-launch',
+        tier: 'worker',
+      },
+    },
+  }),
+  handler,
+);
 
 async function route(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
