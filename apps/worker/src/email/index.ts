@@ -12,12 +12,20 @@ const DEFAULT_FROM = 'no-reply@culina.life';
  */
 export async function sendEmail(env: Env, to: string, subject: string, html: string, text?: string): Promise<boolean> {
   const from = env.EMAIL_FROM || DEFAULT_FROM;
+  const replyTo = env.EMAIL_REPLY_TO || undefined;
   const plain = text ?? htmlToText(html);
 
   // 1) Cloudflare Email Service binding
   if (env.EMAIL?.send) {
     try {
-      await env.EMAIL.send({ to, from, subject, html, text: plain });
+      await env.EMAIL.send({
+        to,
+        from: { email: from, name: 'Culina' },
+        subject,
+        html,
+        text: plain,
+        ...(replyTo ? { replyTo } : {}),
+      });
       return true;
     } catch (e) {
       console.error(`[email:cf] failed to=${to} subject="${subject}": ${(e as Error).message}`);
@@ -30,7 +38,7 @@ export async function sendEmail(env: Env, to: string, subject: string, html: str
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: env.RESEND_FROM_EMAIL || from, to, subject, html, text: plain }),
+      body: JSON.stringify({ from: env.RESEND_FROM_EMAIL || from, to, subject, html, text: plain, ...(replyTo ? { reply_to: replyTo } : {}) }),
     });
     return res.ok;
   }

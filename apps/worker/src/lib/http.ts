@@ -14,11 +14,24 @@ export interface Env {
   RESEND_FROM_EMAIL?: string;
   // Cloudflare Email Service (Email Sending) binding — outbound transactional
   // email. Optional: when unbound, sendEmail() falls back to Resend, then no-op.
-  EMAIL?: { send: (message: { to: string | string[]; from: string; subject: string; html?: string; text?: string; reply_to?: string }) => Promise<unknown> };
+  EMAIL?: {
+    send: (message: {
+      to: EmailAddr | EmailAddr[];
+      from: EmailAddr;
+      subject: string;
+      html?: string;
+      text?: string;
+      replyTo?: EmailAddr;
+    }) => Promise<{ messageId?: string }>;
+  };
   EMAIL_FROM?: string;
+  EMAIL_REPLY_TO?: string;
   APP_URL?: string;
   ALLOWED_ORIGIN?: string;
 }
+
+/** An email address, optionally with a display name (Cloudflare Email Service shape). */
+export type EmailAddr = string | { email: string; name?: string };
 
 export function corsHeaders(env: Env): Record<string, string> {
   return {
