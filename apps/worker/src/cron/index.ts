@@ -106,7 +106,7 @@ export async function runMonthlyInvoicing(env: Env): Promise<{ created: number }
       if (tp?.email) {
         const base = (env.APP_URL || 'https://culina.life').replace(/\/$/, '');
         await sendEmail(env, tp.email, `Your ${monthLabel} Culina invoice`,
-          templates.invoiceNew({ name: tp.full_name, month: monthLabel, total: `$${((subtotal + fee) / 100).toFixed(2)}`, dueDate: due, viewUrl: `${base}/tenant/bookings` }));
+          templates.invoiceNew({ name: tp.full_name, period: monthLabel, total: `$${((subtotal + fee) / 100).toFixed(2)}`, dueDate: due, viewUrl: `${base}/tenant/bookings` }));
       }
     } catch (e) {
       console.error('[invoicing] email failed:', (e as Error).message);

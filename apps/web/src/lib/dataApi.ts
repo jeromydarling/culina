@@ -52,6 +52,12 @@ export const dataApi = {
     req<{ booking: any }>('bookings', { method: 'POST', body: JSON.stringify(input) }),
   updateBooking: (id: string, patch: { status?: string; notes?: string }) =>
     req<{ booking: any }>(`bookings/${id}`, { method: 'POST', body: JSON.stringify(patch) }),
+  // Public kitchen-page inquiry → creates a lead + notifies the operator.
+  createLead: (input: { kitchen_id?: string; kitchen_slug?: string; full_name: string; email: string; phone?: string; business_name?: string; message?: string; source?: string }) =>
+    req<{ ok: boolean; id?: string }>('leads', { method: 'POST', body: JSON.stringify(input) }),
+  // Operator/admin: email an invoice to its tenant and mark it sent.
+  sendInvoice: (id: string) =>
+    req<{ ok: boolean; emailed: boolean; invoice: any }>(`invoices/${id}/send`, { method: 'POST', body: JSON.stringify({}) }),
   errors: () => req<{ errors: any[] }>('errors'),
   exportUrl: () => `${API_URL}/api/account/export`,
   async deleteAccount(): Promise<{ ok: boolean }> {

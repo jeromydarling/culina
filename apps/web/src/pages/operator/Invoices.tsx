@@ -17,6 +17,9 @@ import {
   createInvoice,
   updateInvoice,
 } from '@/lib/store';
+import { dataApi } from '@/lib/dataApi';
+import { isLive } from '@/lib/config';
+import { notifyError } from '@/lib/errors';
 import { formatCents, platformFeeCents } from '@culina/shared';
 import { format } from 'date-fns';
 
@@ -54,6 +57,22 @@ export default function Invoices() {
     toast.success('Invoice created');
   }
 
+  // Email the invoice to its tenant (live) or simulate (demo), then mark sent.
+  const [sending, setSending] = React.useState<string | null>(null);
+  async function sendInvoice(id: string) {
+    setSending(id);
+    try {
+      if (isLive()) await dataApi.sendInvoice(id);
+      updateInvoice(id, { status: 'sent' });
+      force();
+      toast.success(isLive() ? 'Invoice emailed to tenant' : 'Invoice sent (demo)');
+    } catch (err) {
+      notifyError(err);
+    } finally {
+      setSending(null);
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -82,7 +101,7 @@ export default function Invoices() {
                     <td className="p-3 font-medium">{formatCents(inv.total_cents)}</td>
                     <td className="p-3"><Badge variant={statusVariant(inv.status)}>{inv.status}</Badge></td>
                     <td className="p-3 text-right">
-                      {inv.status === 'draft' && <Button size="sm" variant="outline" onClick={() => { updateInvoice(inv.id, { status: 'sent' }); force(); toast.success('Invoice sent'); }}><Send className="h-3 w-3" /> Send</Button>}
+                      {inv.status === 'draft' && <Button size="sm" variant="outline" disabled={sending === inv.id} onClick={() => sendInvoice(inv.id)}><Send className="h-3 w-3" /> {sending === inv.id ? 'Sending…' : 'Send'}</Button>}
                       {(inv.status === 'sent' || inv.status === 'overdue') && <Button size="sm" variant="outline" onClick={() => { updateInvoice(inv.id, { status: 'paid', paid_at: new Date().toISOString() }); force(); toast.success('Marked paid'); }}><Check className="h-3 w-3" /> Mark paid</Button>}
                     </td>
                   </tr>

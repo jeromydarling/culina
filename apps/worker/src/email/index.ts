@@ -159,16 +159,30 @@ export const templates = {
       ctaText: 'Open calendar',
       ctaUrl: o.calendarUrl,
     }),
-  invoiceNew: (o: { name: string | null; month: string; total: string; dueDate: string; viewUrl: string }) =>
+  invoiceNew: (o: { name: string | null; period?: string; number?: string; total: string; dueDate: string; viewUrl: string }) =>
     emailLayout({
-      heading: `Your ${escapeHtml(o.month)} invoice is ready`,
-      intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, your kitchen booking invoice is ready to review.${detailList([
-        ['Period', o.month],
+      heading: o.period ? `Your ${escapeHtml(o.period)} invoice is ready` : 'Your invoice is ready',
+      intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, your kitchen invoice is ready to review.${detailList([
+        ...(o.number ? ([['Invoice', o.number]] as [string, string][]) : []),
+        ...(o.period ? ([['Period', o.period]] as [string, string][]) : []),
         ['Amount', o.total],
         ['Due', o.dueDate],
       ])}`,
       ctaText: 'View invoice',
       ctaUrl: o.viewUrl,
+    }),
+  leadInquiry: (o: { kitchen: string; name: string; email: string; phone: string; business: string; message: string; crmUrl: string }) =>
+    emailLayout({
+      heading: 'New space inquiry',
+      intro: `Someone is interested in renting space at ${escapeHtml(o.kitchen)}.${detailList([
+        ['Name', o.name],
+        ['Email', o.email],
+        ['Phone', o.phone || '—'],
+        ['Business', o.business || '—'],
+        ['Message', o.message || '—'],
+      ])}`,
+      ctaText: 'Open Leads CRM',
+      ctaUrl: o.crmUrl,
     }),
 };
 

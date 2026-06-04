@@ -2,6 +2,7 @@ import { type Env, json, error } from '../lib/http';
 import { authenticate } from '../auth';
 import { uuid } from '../lib/crypto';
 import { sendEmail, templates } from '../email';
+import { checkAiQuota } from '../lib/ratelimit';
 
 const PLATFORM_FEE_PCT = 1.5;
 const MARKETPLACE_COMMISSION_PCT = 5;
@@ -147,6 +148,55 @@ export async function handleData(path: string, request: Request, env: Env): Prom
       const products = tp ? (await all(env, 'SELECT * FROM products WHERE tenant_id = ? AND is_active = 1', tp.tenant_id)).map((r) => toApp('products', r)) : [];
       return json({ profile: toApp('tenant_profiles', tp), site: toApp('tenant_sites', site), products }, env);
     }
+  }
+
+  // ── Public lead capture from a kitchen's directory page (no auth) ─────────
+  if (path === 'leads' && request.method === 'POST') {
+    const b: any = await request.json().catch(() => ({}));
+    const fullName = String(b.full_name ?? '').trim().slice(0, 120);
+    const email = String(b.email ?? '').trim().slice(0, 200);
+    if (!fullName || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return error('Name and a valid email are required', env, 400);
+
+    // Light per-IP daily guard (reuses the usage table). Over limit → silent ok.
+    const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+    if (!(await checkAiQuota(env, `lead:${ip}`, 20))) return json({ ok: true }, env);
+
+    // Resolve the kitchen by id, then slug. Unknown (e.g. demo-only) → silent ok.
+    let kitchen: any = null;
+    if (b.kitchen_id) kitchen = await db.prepare('SELECT id, name, operator_id FROM kitchens WHERE id = ?').bind(b.kitchen_id).first();
+    if (!kitchen && b.kitchen_slug) kitchen = await db.prepare('SELECT id, name, operator_id FROM kitchens WHERE slug = ?').bind(b.kitchen_slug).first();
+    if (!kitchen) return json({ ok: true }, env);
+
+    const now = new Date().toISOString();
+    const leadId = uuid();
+    const phone = String(b.phone ?? '').trim().slice(0, 40) || null;
+    const business = String(b.business_name ?? '').trim().slice(0, 120) || null;
+    const message = String(b.message ?? '').trim().slice(0, 2000) || null;
+    await db
+      .prepare(
+        `INSERT INTO leads (id, kitchen_id, full_name, email, phone, business_name, business_type, message, source, status, notes, follow_up_date, assigned_to, converted_membership_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, 'new', NULL, NULL, NULL, NULL, ?, ?)`,
+      )
+      .bind(leadId, kitchen.id, fullName, email, phone, business, message, String(b.source ?? 'culina_directory').slice(0, 40), now, now)
+      .run();
+
+    // Notify the operator (in-app + email), best-effort.
+    try {
+      if (kitchen.operator_id) {
+        await db
+          .prepare('INSERT INTO notifications (id, user_id, title, body, type, is_read, action_url, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)')
+          .bind(uuid(), kitchen.operator_id, 'New space inquiry', `${fullName} is interested in ${kitchen.name}.`, 'lead', '/operator/leads', now)
+          .run();
+        const op = await db.prepare('SELECT email FROM profiles WHERE id = ?').bind(kitchen.operator_id).first<any>();
+        if (op?.email) {
+          await sendEmail(env, op.email, `New inquiry for ${kitchen.name}`,
+            templates.leadInquiry({ kitchen: kitchen.name, name: fullName, email, phone: phone ?? '', business: business ?? '', message: message ?? '', crmUrl: `${appBase(env, request)}/operator/leads` }));
+        }
+      }
+    } catch (e) {
+      console.error('[lead] notify failed:', (e as Error).message);
+    }
+    return json({ ok: true, id: leadId }, env);
   }
 
   const profile = await authenticate(request, env);
@@ -351,6 +401,32 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     }
 
     return json({ booking: toApp('bookings', updated) }, env);
+  }
+
+  // ── Send an invoice to its tenant by email (operator/admin only) ──────
+  const invSend = path.match(/^invoices\/([^/]+)\/send$/);
+  if (invSend && request.method === 'POST') {
+    const inv = await db.prepare('SELECT * FROM invoices WHERE id = ?').bind(invSend[1]).first<any>();
+    if (!inv) return error('Invoice not found', env, 404);
+    if (!(profile.role === 'admin' || (await operatesKitchen(env, inv.kitchen_id, profile.id)))) return error('Forbidden', env, 403);
+
+    const [tenant, kitchenRow] = await Promise.all([
+      db.prepare('SELECT email, full_name FROM profiles WHERE id = ?').bind(inv.tenant_id).first<any>(),
+      db.prepare('SELECT name FROM kitchens WHERE id = ?').bind(inv.kitchen_id).first<any>(),
+    ]);
+    let emailed = false;
+    if (tenant?.email) {
+      const period = inv.period_start ? new Date(inv.period_start).toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : undefined;
+      emailed = await sendEmail(env, tenant.email, `Invoice ${inv.invoice_number} from ${kitchenRow?.name ?? 'Culina'}`,
+        templates.invoiceNew({ name: tenant.full_name, period, number: inv.invoice_number, total: money(inv.total_cents), dueDate: inv.due_date ?? '—', viewUrl: `${appBase(env, request)}/tenant/bookings` }));
+    }
+    if (inv.status === 'draft') await db.prepare("UPDATE invoices SET status = 'sent' WHERE id = ?").bind(inv.id).run();
+    try {
+      await db.prepare('INSERT INTO notifications (id, user_id, title, body, type, is_read, action_url, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)')
+        .bind(uuid(), inv.tenant_id, 'New invoice', `Invoice ${inv.invoice_number} is ready to review.`, 'invoice_due', '/tenant/bookings', new Date().toISOString()).run();
+    } catch { /* non-fatal */ }
+    const updated = await db.prepare('SELECT * FROM invoices WHERE id = ?').bind(inv.id).first();
+    return json({ ok: true, emailed, invoice: toApp('invoices', updated) }, env);
   }
 
   // ── Generic upsert (authorized + money-recomputed + conflict-safe) ────

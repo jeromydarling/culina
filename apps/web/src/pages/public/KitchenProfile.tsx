@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { toast } from 'sonner';
 import { Check, Mail, MapPin, Phone } from 'lucide-react';
 import { MarketingNav } from '@/components/layout/MarketingNav';
 import { Footer } from '@/components/layout/Footer';
@@ -8,13 +7,16 @@ import { SmartImage } from '@/components/SmartImage';
 import { Button } from '@/components/ui/button';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { getKitchenBySlug, listSpaces, listEquipment, createLead } from '@/lib/store';
+import { getKitchenBySlug, listSpaces, listEquipment } from '@/lib/store';
+import { dataApi } from '@/lib/dataApi';
+import { notifyError } from '@/lib/errors';
 import { formatCents, SPACE_TYPE_LABELS } from '@culina/shared';
 
 export default function KitchenProfile() {
   const { slug } = useParams();
   const kitchen = slug ? getKitchenBySlug(slug) : null;
   const [sent, setSent] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
   const [form, setForm] = React.useState({ full_name: '', email: '', phone: '', business_name: '', message: '' });
 
   if (!kitchen) {
@@ -37,11 +39,27 @@ export default function KitchenProfile() {
   const spaces = listSpaces(kitchen.id);
   const equipment = listEquipment(kitchen.id);
 
-  function submitLead(e: React.FormEvent) {
+  async function submitLead(e: React.FormEvent) {
     e.preventDefault();
-    createLead({ kitchen_id: kitchen!.id, full_name: form.full_name, email: form.email, phone: form.phone || null, business_name: form.business_name || null, message: form.message || null, source: 'culina_directory' });
-    setSent(true);
-    toast.success('Request sent! The operator will reach out soon.');
+    setBusy(true);
+    try {
+      // Public endpoint: creates the lead in D1 and emails the operator.
+      await dataApi.createLead({
+        kitchen_id: kitchen!.id,
+        kitchen_slug: kitchen!.slug,
+        full_name: form.full_name,
+        email: form.email,
+        phone: form.phone || undefined,
+        business_name: form.business_name || undefined,
+        message: form.message || undefined,
+        source: 'culina_directory',
+      });
+      setSent(true);
+    } catch (err) {
+      notifyError(err);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -114,7 +132,7 @@ export default function KitchenProfile() {
                 <div><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
                 <div><Label>Business name</Label><Input value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} /></div>
                 <div><Label>Message</Label><Textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="What do you make, and what space do you need?" /></div>
-                <Button type="submit" className="w-full">Send request</Button>
+                <Button type="submit" className="w-full" disabled={busy}>{busy ? 'Sending…' : 'Send request'}</Button>
               </form>
             )}
             <div className="mt-5 space-y-2 border-t pt-4 text-sm text-muted-foreground">
