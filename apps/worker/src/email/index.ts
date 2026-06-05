@@ -124,8 +124,8 @@ export const templates = {
     }),
   bookingConfirmed: (o: { name: string | null; kitchen: string; space: string; when: string; total: string; manageUrl: string }) =>
     emailLayout({
-      heading: 'Your booking is confirmed',
-      intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, your space is reserved.${detailList([
+      heading: 'You’re all set 🎉',
+      intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, your space is reserved — we hope the session goes beautifully.${detailList([
         ['Kitchen', o.kitchen],
         ['Space', o.space],
         ['When', o.when],
@@ -133,7 +133,7 @@ export const templates = {
       ])}`,
       ctaText: 'View my bookings',
       ctaUrl: o.manageUrl,
-      outro: 'Need to make a change? Manage or cancel from your bookings any time.',
+      outro: 'Plans change — you can manage or cancel from your bookings any time.',
     }),
   bookingStatus: (o: { name: string | null; kitchen: string; space: string; when: string; status: string; manageUrl: string }) =>
     emailLayout({
@@ -146,11 +146,12 @@ export const templates = {
       ])}`,
       ctaText: 'View my bookings',
       ctaUrl: o.manageUrl,
+      outro: o.status === 'cancelled' ? 'Hope to see you back in the kitchen soon — book another time whenever you’re ready.' : undefined,
     }),
   bookingOperatorAlert: (o: { kitchen: string; space: string; renter: string; when: string; total: string; calendarUrl: string }) =>
     emailLayout({
-      heading: 'New booking in your kitchen',
-      intro: `A space was just reserved.${detailList([
+      heading: 'One of your makers just booked time',
+      intro: `Good news — your kitchen’s going to be busy.${detailList([
         ['Renter', o.renter],
         ['Space', o.space],
         ['When', o.when],
@@ -158,11 +159,12 @@ export const templates = {
       ])}`,
       ctaText: 'Open calendar',
       ctaUrl: o.calendarUrl,
+      outro: 'Nothing to do here — just a heads-up so you know what’s ahead.',
     }),
   invoiceNew: (o: { name: string | null; period?: string; number?: string; total: string; dueDate: string; viewUrl: string }) =>
     emailLayout({
       heading: o.period ? `Your ${escapeHtml(o.period)} invoice is ready` : 'Your invoice is ready',
-      intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, your kitchen invoice is ready to review.${detailList([
+      intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, here’s your latest invoice — no rush, just so you have it.${detailList([
         ...(o.number ? ([['Invoice', o.number]] as [string, string][]) : []),
         ...(o.period ? ([['Period', o.period]] as [string, string][]) : []),
         ['Amount', o.total],
@@ -170,6 +172,7 @@ export const templates = {
       ])}`,
       ctaText: 'View invoice',
       ctaUrl: o.viewUrl,
+      outro: 'Questions about anything on here? Just reply — we’re happy to help.',
     }),
   leadInquiry: (o: { kitchen: string; name: string; email: string; phone: string; business: string; message: string; crmUrl: string }) =>
     emailLayout({
