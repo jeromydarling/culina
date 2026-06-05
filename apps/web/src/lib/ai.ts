@@ -73,6 +73,52 @@ function heuristicEdit(command: string): Record<string, unknown> {
   return patch;
 }
 
+/**
+ * Languages offered for on-the-fly translation (Workers AI · Llama).
+ * Codes are kept in sync with the worker's translate handler.
+ */
+export const LANGUAGES: Record<string, string> = {
+  en: 'English',
+  es: 'Español',
+  zh: '中文',
+  vi: 'Tiếng Việt',
+  fr: 'Français',
+  ar: 'العربية',
+  pt: 'Português',
+  ko: '한국어',
+  tl: 'Tagalog',
+  ht: 'Kreyòl Ayisyen',
+  ru: 'Русский',
+  bn: 'বাংলা',
+};
+
+export interface Translation {
+  text: string;
+  demo?: boolean;
+}
+
+/**
+ * Translate text into a target language with Meta Llama (Cloudflare Workers AI)
+ * via the Worker. Returns `{ demo: true }` (and the original text) when the
+ * Worker/AI binding isn't available, so callers can fall back gracefully.
+ */
+export async function translate(text: string, target: string): Promise<Translation> {
+  if (!text.trim() || target === 'en') return { text };
+  try {
+    const res = await fetch(`${API_URL}/api/ai/translate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, target }),
+    });
+    if (!res.ok) throw new Error(`Translate request failed: ${res.status}`);
+    const data = (await res.json()) as { text?: string; demo?: boolean };
+    if (data.demo || !data.text?.trim()) return { text, demo: true };
+    return { text: data.text };
+  } catch {
+    return { text, demo: true };
+  }
+}
+
 export async function callAI(endpoint: string, body: unknown, demoFallback: string): Promise<string> {
   try {
     const res = await fetch(`${API_URL}/api/ai/${endpoint}`, {

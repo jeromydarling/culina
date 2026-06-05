@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/cloudflare';
 import { type Env, corsHeaders, json, error } from './lib/http';
 import { handleAI } from './ai';
 import { handleImage } from './ai/image';
+import { handleTranslate } from './ai/translate';
 import { handleStripe } from './stripe';
 import { handleAuth, authenticate } from './auth';
 import { handleData } from './data';
@@ -126,6 +127,7 @@ async function route(request: Request, env: Env): Promise<Response> {
         return error('Daily AI limit reached. Try again tomorrow or sign in for a higher limit.', env, 429);
       }
       if (path === '/api/ai/generate-image') return handleImage(request, env);
+      if (path === '/api/ai/translate') return handleTranslate(request, env);
       return handleAI(path.replace('/api/ai/', ''), request, env);
     }
 

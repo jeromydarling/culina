@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Minus, Plus, ShoppingBag, X } from 'lucide-react';
 import { SmartImage } from '@/components/SmartImage';
+import { Translate } from '@/components/Translate';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Input, Label } from '@/components/ui/input';
@@ -176,7 +177,7 @@ export default function Storefront() {
         <section className="bg-white py-14">
           <div className="mx-auto max-w-3xl px-4 text-center">
             <h2 className="font-heading text-2xl font-bold" style={{ color: primary }}>Our story</h2>
-            <p className="mt-4 text-muted-foreground">{site.about_text}</p>
+            <Translate text={site.about_text} className="mt-4 text-muted-foreground" />
           </div>
         </section>
       )}

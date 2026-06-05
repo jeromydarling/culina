@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { DollarSign, Package, ShoppingCart, CalendarClock, CalendarPlus, Plus, Store, Wallet, Megaphone } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { GettingStarted } from '@/components/GettingStarted';
+import { Translate } from '@/components/Translate';
 import { PageHeader, StatCard } from '@/components/ui/misc';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -109,7 +110,7 @@ export default function Home() {
             <div className="mt-4">
               <div className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground"><Megaphone className="h-3 w-3" /> {kitchen ? `From ${kitchen.name}` : 'From your kitchen'}</div>
               {announcements[0]
-                ? <div className="mt-2 rounded-lg bg-muted/50 p-3"><div className="text-sm font-medium">{announcements[0].title}</div><div className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{announcements[0].body}</div></div>
+                ? <div className="mt-2 rounded-lg bg-muted/50 p-3"><div className="text-sm font-medium">{announcements[0].title}</div><Translate text={announcements[0].body} className="mt-0.5 text-xs text-muted-foreground" /></div>
                 : <p className="mt-2 text-xs text-muted-foreground">No notes from your kitchen right now — you’re all caught up.</p>}
             </div>
           </CardContent>
