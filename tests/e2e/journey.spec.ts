@@ -205,7 +205,10 @@ test.describe('Maker journey (signup → use everything → sign out)', () => {
       }
       await expect(visibleLogout()).toBeVisible({ timeout: 2_000 });
     }).toPass({ timeout: 20_000 });
-    await visibleLogout().click();
+    // dispatchEvent fires the real logout handler on the element directly, so a
+    // transient full-screen overlay (e.g. an animating backdrop the deployed
+    // layout renders over the content column) can't swallow the click.
+    await visibleLogout().dispatchEvent('click');
 
     // Logout navigates to the marketing root; the hero CTA is back (both viewports).
     await page.waitForURL(/\/$/, { timeout: 20_000 });
