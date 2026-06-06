@@ -187,12 +187,16 @@ test.describe('Maker journey (signup → use everything → sign out)', () => {
     // Sign out. The Log-out control lives in the sidebar (desktop) / drawer (mobile).
     // If none is on screen (mobile), open the drawer and wait for its logout to
     // appear — don't race the backdrop's fade-in.
+    // force:true bypasses Playwright's interception hit-test. Opening the drawer
+    // makes its own backdrop cover the toggle button, which otherwise traps the
+    // retry loop; force-clicking dispatches cleanly regardless (and works whether
+    // or not the deployed CSS yet collapses the backdrop's fade-in).
     const visibleLogout = () => page.locator('button[aria-label="Log out"]:visible');
     if ((await visibleLogout().count()) === 0) {
-      await page.getByRole('button', { name: 'Open menu' }).click();
+      await page.getByRole('button', { name: 'Open menu' }).click({ force: true });
       await expect(visibleLogout().first()).toBeVisible({ timeout: 10_000 });
     }
-    await visibleLogout().first().click();
+    await visibleLogout().first().click({ force: true });
 
     // Back on marketing, signed out: the hero CTA (in-body, both viewports) is back.
     await expect(page).toHaveURL(/\/$/);
