@@ -20,7 +20,9 @@ export default defineConfig({
   // files against each other in CI either, to keep the deployed DB calm.
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  // Diagnostic phase: 0 retries so a failure stops the serial journey fast and
+  // surfaces clean logs (restore to 2 once the journey is green end-to-end).
+  retries: process.env.CI ? 0 : 0,
   workers: 1,
   reporter: process.env.CI
     ? [['github'], ['html', { open: 'never' }]]

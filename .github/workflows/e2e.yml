@@ -35,6 +35,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E (desktop + mobile) against the deployed site
+        timeout-minutes: 20
         run: npx playwright test --project=desktop --project=mobile
         env:
           # Provided by workflow_dispatch input, else default to production.
