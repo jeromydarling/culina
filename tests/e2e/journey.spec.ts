@@ -187,19 +187,22 @@ test.describe('Maker journey (signup → use everything → sign out)', () => {
     // Sign out. The Log-out control lives in the sidebar (desktop) / drawer (mobile).
     // If none is on screen (mobile), open the drawer and wait for its logout to
     // appear — don't race the backdrop's fade-in.
-    // force:true bypasses Playwright's interception hit-test. Opening the drawer
-    // makes its own backdrop cover the toggle button, which otherwise traps the
-    // retry loop; force-clicking dispatches cleanly regardless (and works whether
-    // or not the deployed CSS yet collapses the backdrop's fade-in).
-    const visibleLogout = () => page.locator('button[aria-label="Log out"]:visible');
-    if ((await visibleLogout().count()) === 0) {
-      await page.getByRole('button', { name: 'Open menu' }).click({ force: true });
-      await expect(visibleLogout().first()).toBeVisible({ timeout: 10_000 });
-    }
-    await visibleLogout().first().click({ force: true });
+    // Sign out. Desktop shows the Log-out control in the always-visible sidebar;
+    // mobile hides it behind the hamburger drawer. Open the drawer only when no
+    // logout is on screen (so we never toggle an open drawer shut), retrying to
+    // ride out the backdrop's fade-in, then click the real control (a normal
+    // click — force:true can land beside the handler).
+    const visibleLogout = () => page.locator('button[aria-label="Log out"]:visible').first();
+    await expect(async () => {
+      if (!(await visibleLogout().isVisible().catch(() => false))) {
+        await page.getByRole('button', { name: 'Open menu' }).click({ force: true });
+      }
+      await expect(visibleLogout()).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
+    await visibleLogout().click();
 
-    // Back on marketing, signed out: the hero CTA (in-body, both viewports) is back.
-    await expect(page).toHaveURL(/\/$/);
+    // Logout navigates to the marketing root; the hero CTA is back (both viewports).
+    await page.waitForURL(/\/$/, { timeout: 20_000 });
     await expect(page.getByRole('link', { name: /start free/i }).first()).toBeVisible({ timeout: 15_000 });
   });
 });
