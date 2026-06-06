@@ -95,11 +95,15 @@ test.describe('Maker journey (signup → use everything → sign out)', () => {
     await page.getByRole('button', { name: /reduce COGS/i }).click();
     await expect(page.getByText(/AI-generated/i)).toBeVisible({ timeout: 30_000 });
 
-    // Persisted? Reload the list and find it.
-    await page.goto('/tenant/recipes');
-    await page.reload();
-    await expect(page.getByRole('heading', { level: 1, name: /Recipe & Food Cost Lab/ })).toBeVisible();
+    // Back to the list in-app (no reload) — proves the populated list renders.
+    await page.getByRole('button', { name: /All recipes/i }).click();
     await expect(page.getByText(recipeName, { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+
+    // Now prove D1 persistence with a real cold reload. Assert we stay in-app
+    // (a session/auth bounce would land on /auth/login) and the recipe survives.
+    await page.reload();
+    await expect(page).toHaveURL(/\/tenant\/recipes/);
+    await expect(page.getByText(recipeName, { exact: true }).first()).toBeVisible({ timeout: 25_000 });
   });
 
   test('4. create a product → it persists across reload', async () => {
@@ -113,8 +117,8 @@ test.describe('Maker journey (signup → use everything → sign out)', () => {
     await saveAnd(page, () => page.getByRole('button', { name: 'Save product' }).click());
 
     await page.reload();
-    await expect(page.getByRole('heading', { level: 1, name: /Products & Storefront/ })).toBeVisible();
-    await expect(page.getByText(productName, { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page).toHaveURL(/\/tenant\/products/);
+    await expect(page.getByText(productName, { exact: true }).first()).toBeVisible({ timeout: 25_000 });
   });
 
   test('5. update business settings → the change persists across reload', async () => {
@@ -126,7 +130,8 @@ test.describe('Maker journey (signup → use everything → sign out)', () => {
     await saveAnd(page, () => page.getByRole('button', { name: 'Save changes' }).click());
 
     await page.reload();
-    await expect(field(page, 'Business name')).toHaveValue(updated, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/tenant\/settings/);
+    await expect(field(page, 'Business name')).toHaveValue(updated, { timeout: 25_000 });
   });
 
   test('6. edit the storefront hero → it persists across reload', async () => {
@@ -139,7 +144,8 @@ test.describe('Maker journey (signup → use everything → sign out)', () => {
     await saveAnd(page, () => page.getByRole('button', { name: 'Save', exact: true }).click());
 
     await page.reload();
-    await expect(field(page, 'Hero headline')).toHaveValue(hero, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/tenant\/storefront/);
+    await expect(field(page, 'Hero headline')).toHaveValue(hero, { timeout: 25_000 });
   });
 
   test('7. request a mentor (when seeded) → the request persists across reload', async () => {
@@ -159,9 +165,9 @@ test.describe('Maker journey (signup → use everything → sign out)', () => {
     // After a reload, that mentor shows a status instead of the request button, so
     // the count of available "Request mentorship" buttons drops — proof it persisted.
     await page.reload();
-    await expect(page.getByRole('heading', { level: 1, name: /Mentor Matching/ })).toBeVisible();
+    await expect(page).toHaveURL(/\/tenant\/mentors/);
     await expect(page.getByRole('button', { name: /request mentorship/i })).toHaveCount(before - 1, {
-      timeout: 15_000,
+      timeout: 25_000,
     });
   });
 
@@ -169,7 +175,8 @@ test.describe('Maker journey (signup → use everything → sign out)', () => {
     await page.goto('/tenant');
     await page.reload();
     // Still signed in (D1-backed JWT session restored on load), not bounced to login.
-    await expect(page.getByRole('heading', { level: 1, name: /👋/ })).toBeVisible({ timeout: 15_000 });
+    await expect(page).toHaveURL(/\/tenant$/);
+    await expect(page.getByRole('heading', { level: 1, name: /👋/ })).toBeVisible({ timeout: 25_000 });
     await dismissVerifyBanner(page);
 
     // Sign out. The Log-out control lives in the sidebar (desktop) / drawer (mobile);

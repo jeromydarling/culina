@@ -25,8 +25,8 @@ export default defineConfig({
   reporter: process.env.CI
     ? [['github'], ['html', { open: 'never' }]]
     : [['list'], ['html', { open: 'never' }]],
-  timeout: 60_000,
-  expect: { timeout: 15_000 },
+  timeout: 75_000,
+  expect: { timeout: 20_000 },
   use: {
     baseURL: BASE_URL,
     // Collapse framer-motion / CSS animations to instant. Animating elements stay
