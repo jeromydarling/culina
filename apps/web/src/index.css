@@ -91,6 +91,17 @@ h1, h2, h3, h4, .font-heading {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* Global reset: collapse ALL animations and transitions to instant. Beyond the
+     accessibility win, this stabilizes overlays (e.g. the mobile drawer's fade-in
+     backdrop) so they never sit mid-animation intercepting clicks. */
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
   .animate-float, .animate-float-slow, .animate-blob, .animate-marquee,
   .animate-risein, .bg-animated-gradient { animation: none !important; }
 }
