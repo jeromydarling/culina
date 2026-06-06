@@ -194,8 +194,14 @@ test.describe('Maker journey (signup → use everything → sign out)', () => {
     // click — force:true can land beside the handler).
     const visibleLogout = () => page.locator('button[aria-label="Log out"]:visible').first();
     await expect(async () => {
-      if (!(await visibleLogout().isVisible().catch(() => false))) {
-        await page.getByRole('button', { name: 'Open menu' }).click({ force: true });
+      // Open the drawer ONLY on mobile — i.e. when the hamburger is actually on
+      // screen. On desktop the sidebar logout is always present (we just wait for
+      // it to render), so we must never spawn the drawer, whose backdrop would
+      // then intercept the logout click.
+      const menu = page.getByRole('button', { name: 'Open menu' });
+      if ((await page.locator('button[aria-label="Log out"]:visible').count()) === 0
+        && (await menu.isVisible().catch(() => false))) {
+        await menu.click({ force: true });
       }
       await expect(visibleLogout()).toBeVisible({ timeout: 2_000 });
     }).toPass({ timeout: 20_000 });
