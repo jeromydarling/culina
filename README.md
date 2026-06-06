@@ -143,3 +143,5 @@ assets under `apps/web/public/img/` is always safe.
 ---
 
 *Built with love for food entrepreneurs everywhere.*
+
+<!-- deploy-trigger: 2026-06-06T01:46:15Z (Sentry DSN bake-in) -->
