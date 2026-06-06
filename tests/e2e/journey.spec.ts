@@ -109,8 +109,10 @@ test.describe('Maker journey (signup → use everything → sign out)', () => {
   test('4. create a product → it persists across reload', async () => {
     const productName = `Country Boule ${suffix}`;
     await page.goto('/tenant/products');
-    // "Add product" appears in both the header and the empty state — take the first.
-    await page.getByRole('button', { name: 'Add product', exact: true }).first().click();
+    // "Add product" appears twice: the PageHeader action (which sits under the
+    // sticky top bar and gets click-intercepted on mobile) and the empty-state
+    // button in the page body. Use the latter — reachable in both viewports.
+    await page.getByRole('button', { name: 'Add product', exact: true }).last().click();
 
     await field(page, 'Name').fill(productName);
     await field(page, 'Price ($)').fill('14.00');
@@ -173,6 +175,9 @@ test.describe('Maker journey (signup → use everything → sign out)', () => {
 
   test('8. the session survives a cold reload, then signs out cleanly', async () => {
     await page.goto('/tenant');
+    // Let auth fully settle before the cold reload: reloading mid-flight would
+    // abort /api/auth/me, and that rejection clears the token (a false logout).
+    await expect(page.getByRole('heading', { level: 1, name: /👋/ })).toBeVisible({ timeout: 25_000 });
     await page.reload();
     // Still signed in (D1-backed JWT session restored on load), not bounced to login.
     await expect(page).toHaveURL(/\/tenant$/);
