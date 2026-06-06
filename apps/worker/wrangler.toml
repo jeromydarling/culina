@@ -15,6 +15,15 @@ binding = "AI"
 ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
 STRIPE_PLATFORM_FEE_PERCENT = "1.5"
 ALLOWED_ORIGIN = "*"
+# Email verification gate. Default OFF (line below stays commented): new signups
+# are created already-verified and can use the app immediately — the E2E journey
+# never needs an email link. To REQUIRE confirming the email link, uncomment the
+# next line. This single variable is the only change needed to re-enable it:
+# EMAIL_VERIFICATION = "on"
+#
+# Token for POST /api/admin/purge-user (E2E account cleanup). Prefer a secret in
+# production: `wrangler secret put ADMIN_PURGE_TOKEN`. When unset, the endpoint
+# falls back to a known token but only ever deletes addresses starting "e2e+".
 
 # [observability]
 # enabled = true

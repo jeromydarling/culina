@@ -34,3 +34,8 @@ logs/
 coverage/
 .cache/
 .turbo/
+
+# Playwright E2E
+playwright-report/
+test-results/
+/playwright/.cache/

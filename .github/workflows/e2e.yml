@@ -1,0 +1,61 @@
+name: E2E
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Base URL to test against (the deployed site)'
+        required: false
+        default: 'https://culina.life'
+
+# Let an in-flight deploy of this same push settle before (and instead of) piling
+# up runs. We don't cancel — we want the journey to finish once it starts.
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E (desktop + mobile) against the deployed site
+        run: npx playwright test --project=desktop --project=mobile
+        env:
+          # Provided by workflow_dispatch input, else default to production.
+          BASE_URL: ${{ github.event.inputs.base_url || 'https://culina.life' }}
+          # Repo secret if set; otherwise the Worker's known fallback token. The
+          # purge endpoint only ever deletes e2e+ addresses, so this is safe.
+          ADMIN_PURGE_TOKEN: ${{ secrets.ADMIN_PURGE_TOKEN || 'culina-e2e-purge' }}
+          CI: 'true'
+
+      - name: Upload Playwright report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload traces / videos / screenshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 14

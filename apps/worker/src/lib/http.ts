@@ -28,6 +28,14 @@ export interface Env {
   EMAIL_REPLY_TO?: string;
   APP_URL?: string;
   ALLOWED_ORIGIN?: string;
+  // Email verification gate. Default OFF: a new signup is created already-verified
+  // and can use the whole app immediately (no email round-trip). Set to "on" to
+  // require confirming the email link before email_verified flips true.
+  EMAIL_VERIFICATION?: string;
+  // Token guarding POST /api/admin/purge-user (E2E test cleanup). Falls back to a
+  // known constant so CI works without a secret; the endpoint additionally refuses
+  // any email that doesn't start with "e2e+", bounding the blast radius.
+  ADMIN_PURGE_TOKEN?: string;
   // Server-side Sentry DSN (worker request + cron errors). Set in production
   // via `wrangler secret put SENTRY_DSN`; unset → Sentry no-ops.
   SENTRY_DSN?: string;

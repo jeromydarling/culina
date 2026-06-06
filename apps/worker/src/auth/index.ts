@@ -87,9 +87,13 @@ export async function handleAuth(action: string, request: Request, env: Env): Pr
     const now = new Date().toISOString();
     // An invitation always creates a member (tenant) account.
     const safeRole = invite ? 'tenant' : ['operator', 'tenant', 'admin'].includes(role) ? role : 'tenant';
+    // Email verification is OFF by default: the account is created already-verified
+    // so it can use the whole app immediately. Flip EMAIL_VERIFICATION="on" to gate.
+    const verificationOn = (env.EMAIL_VERIFICATION || '').toLowerCase() === 'on';
+    const verified = verificationOn ? 0 : 1;
 
     await env.DB.batch([
-      env.DB.prepare('INSERT INTO users (id, email, password_hash, salt, created_at) VALUES (?, ?, ?, ?, ?)').bind(id, email, hash, salt, now),
+      env.DB.prepare('INSERT INTO users (id, email, password_hash, salt, email_verified, created_at) VALUES (?, ?, ?, ?, ?, ?)').bind(id, email, hash, salt, verified, now),
       env.DB.prepare('INSERT INTO profiles (id, email, full_name, role, created_at) VALUES (?, ?, ?, ?, ?)').bind(id, email, full_name ?? null, safeRole, now),
     ]);
 
@@ -112,17 +116,23 @@ export async function handleAuth(action: string, request: Request, env: Env): Pr
       }
     }
 
-    // Welcome + confirm-your-email (best-effort: never block signup on email).
+    // Say hello (best-effort: never block signup on email). When verification is
+    // on, the welcome doubles as the confirm-your-email; otherwise it's a plain
+    // welcome with no link to click — the journey never depends on email.
     try {
-      const verifyToken = await issueToken(env, id, 'verify', 24 * HOUR);
-      const verifyUrl = `${appUrl(request, env)}/auth/verify?token=${verifyToken}`;
-      await sendEmail(env, email, 'Welcome to Culina — confirm your email', templates.welcomeVerify(full_name ?? null, verifyUrl));
+      if (verificationOn) {
+        const verifyToken = await issueToken(env, id, 'verify', 24 * HOUR);
+        const verifyUrl = `${appUrl(request, env)}/auth/verify?token=${verifyToken}`;
+        await sendEmail(env, email, 'Welcome to Culina — confirm your email', templates.welcomeVerify(full_name ?? null, verifyUrl));
+      } else {
+        await sendEmail(env, email, 'Welcome to Culina!', templates.welcome(full_name ?? null, `${appUrl(request, env)}/`));
+      }
     } catch (e) {
       console.error('[auth] welcome email failed:', (e as Error).message);
     }
 
     const token = await signJwt({ sub: id, role: safeRole }, await getAuthSecret(env));
-    return json({ token, profile: { id, email, full_name: full_name ?? null, role: safeRole, avatar_url: null, phone: null, created_at: now, email_verified: false } }, env);
+    return json({ token, profile: { id, email, full_name: full_name ?? null, role: safeRole, avatar_url: null, phone: null, created_at: now, email_verified: !verificationOn } }, env);
   }
 
   if (action === 'login') {

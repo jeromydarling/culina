@@ -7,7 +7,7 @@ import { handleStripe } from './stripe';
 import { handleAuth, authenticate } from './auth';
 import { handleData } from './data';
 import { handleTelemetry, logError } from './telemetry';
-import { handleAccountExport, handleAccountDelete } from './account';
+import { handleAccountExport, handleAccountDelete, handleAdminPurgeUser } from './account';
 import { checkAiQuota } from './lib/ratelimit';
 import { runComplianceSweep, runMonthlyInvoicing } from './cron';
 import { handleUpload, handleFile } from './storage';
@@ -90,6 +90,8 @@ async function route(request: Request, env: Env): Promise<Response> {
     // Account data export / deletion (GDPR)
     if (path === '/api/account/export' && request.method === 'GET') return handleAccountExport(request, env);
     if (path === '/api/account/delete' && request.method === 'POST') return handleAccountDelete(request, env);
+    // Token-guarded E2E test-account cleanup (only ever deletes e2e+ addresses).
+    if (path === '/api/admin/purge-user' && request.method === 'POST') return handleAdminPurgeUser(request, env);
 
     if (path === '/api/health') {
       return json({ ok: true, service: 'culina', ai: !!env.ANTHROPIC_API_KEY, images: !!env.AI, db: !!env.DB, storage: !!env.STORAGE, stripe: !!env.STRIPE_SECRET_KEY }, env);

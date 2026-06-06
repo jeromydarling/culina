@@ -106,6 +106,14 @@ export const templates = {
       ctaUrl: verifyUrl,
       outro: 'This link expires in 24 hours. If you didn’t create a Culina account, you can safely ignore this email.',
     }),
+  welcome: (name: string | null, appUrl: string) =>
+    emailLayout({
+      heading: `Welcome to Culina${name ? `, ${escapeHtml(name.split(' ')[0])}` : ''}!`,
+      intro: 'We’re so glad you’re here. Your account is ready to go — jump in to book kitchen time, price your recipes, launch a free storefront, and grow your food business with the whole kitchen circle behind you.',
+      ctaText: 'Open Culina',
+      ctaUrl: appUrl,
+      outro: 'Questions as you get started? Just reply to this email — a real person reads them.',
+    }),
   verify: (verifyUrl: string) =>
     emailLayout({
       heading: 'Confirm your email',
