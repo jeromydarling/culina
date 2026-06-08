@@ -116,7 +116,15 @@ export async function handleStripe(action: string, request: Request, env: Env): 
       success_url: `${origin(request)}/shop/${slug}?paid=1`,
       cancel_url: `${origin(request)}/shop/${slug}?canceled=1`,
       ...lineItems,
-      payment_intent_data: { application_fee_amount: feeCents(subtotal, env), transfer_data: { destination: tp.stripe_account_id } },
+      // on_behalf_of moves chargeback/dispute liability to the maker's
+      // connected account. Without it, destination charges keep liability
+      // on the Culina platform by default. Federation policy is
+      // "connected account owns disputes" across all marketplace apps.
+      payment_intent_data: {
+        application_fee_amount: feeCents(subtotal, env),
+        transfer_data: { destination: tp.stripe_account_id },
+        on_behalf_of: tp.stripe_account_id,
+      },
       metadata: { order_id: orderId, tenant_id: tp.tenant_id, slug },
     });
 
@@ -196,6 +204,82 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
       case 'payment_intent.payment_failed':
         // Surface to the maker if we can map it; non-fatal.
         break;
+      case 'charge.refunded': {
+        // Destination-charge refunds (with reverse_transfer=true on the
+        // refund call) reverse the maker's transfer. Mirror status on the
+        // matching order so the maker sees it in their dashboard.
+        const piId = obj.payment_intent ? String(obj.payment_intent) : null;
+        if (piId) {
+          const amount = Number(obj.amount ?? 0);
+          const amountRefunded = Number(obj.amount_refunded ?? 0);
+          const fully = amount > 0 && amountRefunded >= amount;
+          const newStatus = fully ? 'refunded' : 'partially_refunded';
+          await env.DB.prepare('UPDATE orders SET status = ? WHERE stripe_payment_intent_id = ?').bind(newStatus, piId).run();
+          const row = await env.DB.prepare('SELECT id, tenant_id, order_number FROM orders WHERE stripe_payment_intent_id = ? LIMIT 1').bind(piId).first<any>();
+          if (row?.tenant_id) {
+            await env.DB.prepare('INSERT INTO notifications (id, user_id, title, body, type, is_read, action_url, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)')
+              .bind(uuid(), row.tenant_id, fully ? 'Order refunded' : 'Order partially refunded',
+                `Order ${row.order_number}: $${(amountRefunded / 100).toFixed(2)} refunded to the customer. The transfer to your account has been reversed.`,
+                'order', '/tenant/orders', new Date().toISOString()).run();
+          }
+        }
+        break;
+      }
+      case 'charge.dispute.created':
+      case 'charge.dispute.updated':
+      case 'charge.dispute.closed': {
+        // With on_behalf_of set on the charge, the maker's connected
+        // account bears chargeback liability — but Culina still wants
+        // visibility so support can help makers respond before the
+        // response_due_by deadline. Mark the order, notify the maker.
+        const piId = obj.payment_intent ? String(obj.payment_intent) : null;
+        const status = String(obj.status ?? '');
+        let orderStatus: string | null = null;
+        if (event.type === 'charge.dispute.created') orderStatus = 'disputed';
+        else if (event.type === 'charge.dispute.closed') {
+          orderStatus = status === 'won' ? 'dispute_won' : status === 'lost' ? 'dispute_lost' : 'disputed';
+        }
+        if (piId && orderStatus) {
+          await env.DB.prepare('UPDATE orders SET status = ? WHERE stripe_payment_intent_id = ?').bind(orderStatus, piId).run();
+        }
+        if (piId) {
+          const row = await env.DB.prepare('SELECT id, tenant_id, order_number FROM orders WHERE stripe_payment_intent_id = ? LIMIT 1').bind(piId).first<any>();
+          if (row?.tenant_id) {
+            const amount = Number(obj.amount ?? 0);
+            const reason = String(obj.reason ?? 'unspecified');
+            const title = event.type === 'charge.dispute.created'
+              ? 'Dispute opened on an order'
+              : event.type === 'charge.dispute.closed'
+                ? `Dispute ${status}`
+                : 'Dispute updated';
+            await env.DB.prepare('INSERT INTO notifications (id, user_id, title, body, type, is_read, action_url, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)')
+              .bind(uuid(), row.tenant_id, title,
+                `Order ${row.order_number}: $${(amount / 100).toFixed(2)} — reason: ${reason}. Check your Stripe dashboard to respond.`,
+                'dispute', '/tenant/orders', new Date().toISOString()).run();
+          }
+        }
+        break;
+      }
+      case 'payout.failed': {
+        // The connected account's payout to their bank failed. Stripe
+        // shows it in their dashboard; we add an in-app notification so
+        // they don't miss it. Account id is on event.account.
+        const accountId = event.account ? String(event.account) : null;
+        if (accountId) {
+          const kitchen = await env.DB.prepare('SELECT id, operator_id FROM kitchens WHERE stripe_account_id = ? LIMIT 1').bind(accountId).first<any>();
+          const tp = await env.DB.prepare('SELECT tenant_id FROM tenant_profiles WHERE stripe_account_id = ? LIMIT 1').bind(accountId).first<any>();
+          const recipient = kitchen?.operator_id ?? tp?.tenant_id;
+          if (recipient) {
+            const amount = Number(obj.amount ?? 0);
+            const failureMessage = String(obj.failure_message ?? obj.failure_code ?? 'unknown reason');
+            await env.DB.prepare('INSERT INTO notifications (id, user_id, title, body, type, is_read, action_url, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)')
+              .bind(uuid(), recipient, 'Stripe payout failed',
+                `Your $${(amount / 100).toFixed(2)} payout did not arrive: ${failureMessage}. Update your bank account in Stripe to retry.`,
+                'payout_failed', '/tenant/payouts', new Date().toISOString()).run();
+          }
+        }
+        break;
+      }
       default:
         break;
     }
