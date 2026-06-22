@@ -161,9 +161,17 @@ async function verifySignature(payload: string, header: string | null, secret: s
 
 async function handleWebhook(request: Request, env: Env): Promise<Response> {
   const payload = await request.text();
-  if (env.STRIPE_WEBHOOK_SECRET) {
-    const ok = await verifySignature(payload, request.headers.get('Stripe-Signature'), env.STRIPE_WEBHOOK_SECRET);
-    if (!ok) return error('Invalid signature', env, 400);
+  // Same URL serves both the platform webhook and the Connect webhook (events
+  // from connected accounts). Each endpoint has its own signing secret, so we
+  // try the platform secret first and fall back to the Connect secret.
+  const sigHeader = request.headers.get('Stripe-Signature');
+  const secrets = [env.STRIPE_WEBHOOK_SECRET, env.STRIPE_CONNECT_WEBHOOK_SECRET].filter(Boolean) as string[];
+  if (secrets.length > 0) {
+    let verified = false;
+    for (const s of secrets) {
+      if (await verifySignature(payload, sigHeader, s)) { verified = true; break; }
+    }
+    if (!verified) return error('Invalid signature', env, 400);
   }
   let event: any;
   try {
