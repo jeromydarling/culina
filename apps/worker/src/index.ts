@@ -83,7 +83,14 @@ async function route(request: Request, env: Env): Promise<Response> {
     // per-route SEO so crawlers that don't run JS get page-specific previews.
     if (!path.startsWith('/api/')) {
       if (env.ASSETS) {
-        if (request.method === 'GET' && isSeoHtmlRoute(path)) return handleSeoHtml(request, env);
+        if (request.method === 'GET' && isSeoHtmlRoute(path)) {
+          // Never let SEO injection break page delivery — fall back to the raw asset.
+          try {
+            return await handleSeoHtml(request, env);
+          } catch {
+            return env.ASSETS.fetch(request);
+          }
+        }
         return env.ASSETS.fetch(request);
       }
       return error('Not found', env, 404);
