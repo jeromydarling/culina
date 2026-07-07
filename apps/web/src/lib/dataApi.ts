@@ -64,6 +64,9 @@ export const dataApi = {
   // Operator/admin: email a lead directly from the CRM (replies go to the operator).
   contactLead: (id: string, subject: string, message: string) =>
     req<{ ok: boolean; sent: boolean; lead: any }>(`leads/${id}/contact`, { method: 'POST', body: JSON.stringify({ subject, message }) }),
+  // Operator/admin: retention outreach — email a current member (replies go to the operator).
+  contactMember: (tenantId: string, subject: string, message: string) =>
+    req<{ ok: boolean; sent: boolean }>(`members/${tenantId}/contact`, { method: 'POST', body: JSON.stringify({ subject, message }) }),
   // Operator/admin: welcome a lead in — adds a membership now (existing account)
   // or sends an invitation to join (new person).
   convertLead: (id: string, membershipType: string) =>

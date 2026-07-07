@@ -14,6 +14,7 @@ import {
   KeyRound,
   Network,
   Plug,
+  HeartPulse,
 } from 'lucide-react';
 import { DashboardLayout, type NavItem } from '@/components/layout/DashboardLayout';
 
@@ -21,6 +22,7 @@ const nav: NavItem[] = [
   { to: '/operator', label: 'Overview', icon: LayoutDashboard },
   { to: '/operator/calendar', label: 'Calendar', icon: Calendar },
   { to: '/operator/tenants', label: 'Members', icon: Users },
+  { to: '/operator/retention', label: 'Retention', icon: HeartPulse },
   { to: '/operator/leads', label: 'Inquiries', icon: KanbanSquare },
   { to: '/operator/invoices', label: 'Invoices', icon: FileText },
   { to: '/operator/compliance', label: 'Compliance', icon: ShieldCheck },

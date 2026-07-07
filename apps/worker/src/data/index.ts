@@ -457,6 +457,33 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     return json({ ok: true, sent, lead: toApp('leads', updated) }, env);
   }
 
+  // ── Email a member directly (retention outreach; operator/admin only) ──
+  const memberContact = path.match(/^members\/([^/]+)\/contact$/);
+  if (memberContact && request.method === 'POST') {
+    const tenantId = memberContact[1];
+    const membership = await db.prepare('SELECT * FROM memberships WHERE tenant_id = ? ORDER BY created_at DESC').bind(tenantId).first<any>();
+    if (!membership) return error('Member not found', env, 404);
+    if (!(profile.role === 'admin' || (await operatesKitchen(env, membership.kitchen_id, profile.id)))) return error('Forbidden', env, 403);
+    const who = await db.prepare('SELECT email, full_name FROM profiles WHERE id = ?').bind(tenantId).first<any>();
+    if (!who?.email) return error('Member has no email on file', env, 404);
+    const body: any = await request.json().catch(() => ({}));
+    const subject = String(body.subject ?? '').trim().slice(0, 200) || 'Checking in';
+    const message = String(body.message ?? '').trim().slice(0, 5000);
+    if (!message) return error('Message is required', env, 400);
+
+    const kitchenRow = await db.prepare('SELECT name FROM kitchens WHERE id = ?').bind(membership.kitchen_id).first<any>();
+    // Replies go straight to the operator, not the no-reply mailbox.
+    const sent = await sendEmail(env, who.email, subject,
+      templates.leadMessage({ kitchen: kitchenRow?.name ?? 'your kitchen', senderName: profile.full_name ?? kitchenRow?.name ?? 'The team', message }),
+      undefined, profile.email);
+
+    const now = new Date().toISOString();
+    const logLine = `[${now.slice(0, 10)}] Reached out: ${subject}`;
+    const notes = membership.notes ? `${membership.notes}\n${logLine}` : logLine;
+    await db.prepare('UPDATE memberships SET notes = ?, updated_at = ? WHERE id = ?').bind(notes, now, membership.id).run();
+    return json({ ok: true, sent }, env);
+  }
+
   // ── Convert a lead into a member: add now, or invite them to join ──────
   const leadConvert = path.match(/^leads\/([^/]+)\/convert$/);
   if (leadConvert && request.method === 'POST') {

@@ -34,6 +34,7 @@ const OperatorCompliance = lazy(() => import('@/pages/operator/Compliance'));
 const OperatorSpaces = lazy(() => import('@/pages/operator/Spaces'));
 const OperatorAnnouncements = lazy(() => import('@/pages/operator/Announcements'));
 const OperatorAnalytics = lazy(() => import('@/pages/operator/Analytics'));
+const OperatorRetention = lazy(() => import('@/pages/operator/Retention'));
 const OperatorAccess = lazy(() => import('@/pages/operator/AccessControl'));
 const OperatorNetwork = lazy(() => import('@/pages/operator/PeerNetwork'));
 const OperatorSettings = lazy(() => import('@/pages/operator/Settings'));
@@ -119,6 +120,7 @@ export default function App() {
           <Route path="access" element={<OperatorAccess />} />
           <Route path="announcements" element={<OperatorAnnouncements />} />
           <Route path="analytics" element={<OperatorAnalytics />} />
+          <Route path="retention" element={<OperatorRetention />} />
           <Route path="network" element={<OperatorNetwork />} />
           <Route path="settings" element={<OperatorSettings />} />
           <Route path="stripe-connect" element={<OperatorStripe />} />
