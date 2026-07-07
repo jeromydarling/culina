@@ -11,6 +11,7 @@ import { handleAccountExport, handleAccountDelete, handleAdminPurgeUser } from '
 import { checkAiQuota } from './lib/ratelimit';
 import { runComplianceSweep, runMonthlyInvoicing } from './cron';
 import { handleUpload, handleFile } from './storage';
+import { isSeoHtmlRoute, handleSeoHtml } from './seo';
 
 /**
  * Culina API — Cloudflare Worker.
@@ -78,8 +79,13 @@ async function route(request: Request, env: Env): Promise<Response> {
     }
 
     // Non-API requests are served by the static-asset binding (the React SPA).
+    // For HTML document routes (run_worker_first in wrangler.jsonc), inject
+    // per-route SEO so crawlers that don't run JS get page-specific previews.
     if (!path.startsWith('/api/')) {
-      if (env.ASSETS) return env.ASSETS.fetch(request);
+      if (env.ASSETS) {
+        if (request.method === 'GET' && isSeoHtmlRoute(path)) return handleSeoHtml(request, env);
+        return env.ASSETS.fetch(request);
+      }
       return error('Not found', env, 404);
     }
 

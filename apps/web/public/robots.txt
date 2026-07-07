@@ -1,0 +1,11 @@
+# Culina — https://culina.life
+User-agent: *
+Allow: /
+
+# Private app areas (behind auth; no value in crawling)
+Disallow: /auth/
+Disallow: /operator/
+Disallow: /tenant/
+Disallow: /admin/
+
+Sitemap: https://culina.life/sitemap.xml

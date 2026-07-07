@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Minus, Plus, ShoppingBag, X } from 'lucide-react';
 import { SmartImage } from '@/components/SmartImage';
+import { Seo } from '@/components/Seo';
 import { Translate } from '@/components/Translate';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
@@ -121,6 +122,10 @@ export default function Storefront() {
 
   return (
     <div className="min-h-screen" style={{ background: secondary + '40', fontFamily: site?.font_body }}>
+      <Seo
+        title={`${profile.business_name ?? 'Shop'} — Order online`}
+        description={site?.meta_description ?? profile.description ?? `Shop ${profile.business_name ?? 'this maker'} — fresh from a Culina maker. Order online.`}
+      />
       {/* nav */}
       <header className="sticky top-0 z-40 border-b bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">

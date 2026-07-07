@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Seo } from "@/components/Seo";
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { MapPin, Search, Star } from 'lucide-react';
 import { MarketingNav } from '@/components/layout/MarketingNav';
@@ -43,6 +44,7 @@ export default function FindAKitchen() {
 
   return (
     <div className="bg-white">
+      <Seo />
       <MarketingNav />
       <section className="bg-primary px-4 pb-16 pt-32 text-secondary lg:px-8">
         <div className="mx-auto max-w-4xl text-center">

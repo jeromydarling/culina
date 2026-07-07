@@ -1,4 +1,5 @@
 import { MarketingNav } from '@/components/layout/MarketingNav';
+import { Seo } from "@/components/Seo";
 import { Footer } from '@/components/layout/Footer';
 import { Reveal } from '@/components/Reveal';
 import { HeartHandshake, Sprout, Users } from 'lucide-react';
@@ -6,6 +7,7 @@ import { HeartHandshake, Sprout, Users } from 'lucide-react';
 export default function About() {
   return (
     <div className="bg-white">
+      <Seo />
       <MarketingNav />
       <section className="bg-primary px-4 pb-20 pt-36 text-secondary lg:px-8">
         <div className="mx-auto max-w-3xl text-center">

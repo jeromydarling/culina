@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Seo } from "@/components/Seo";
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -52,6 +53,7 @@ const foodMarquee = [
 export default function Landing() {
   return (
     <div className="overflow-x-hidden bg-white">
+      <Seo />
       <MarketingNav />
       <Hero />
       <Marquee />

@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Seo } from "@/components/Seo";
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
@@ -94,6 +95,7 @@ const rows: Row[] = [
 export default function Features() {
   return (
     <div className="overflow-x-hidden bg-white">
+      <Seo />
       <MarketingNav />
 
       {/* Hero */}

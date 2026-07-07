@@ -18,9 +18,11 @@
     "directory": "apps/web/dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    // Only API requests invoke the Worker; static assets are served directly
-    // (cheaper + faster). Requires wrangler v4.
-    "run_worker_first": ["/api/*"]
+    // API requests + indexable HTML document routes invoke the Worker (the
+    // latter so it injects per-route SEO/OpenGraph for crawlers that don't run
+    // JS). Everything else (JS/CSS/images, robots.txt, sitemap.xml, llms.txt)
+    // is served directly — cheaper + faster. Requires wrangler v4.
+    "run_worker_first": ["/api/*", "/", "/about", "/features", "/find-a-kitchen", "/privacy", "/kitchen/*", "/shop/*"]
   },
 
   "ai": {

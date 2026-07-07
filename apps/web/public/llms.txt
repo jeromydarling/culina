@@ -1,0 +1,33 @@
+# Culina
+
+> Culina is the all-in-one platform for shared commercial kitchens and the food
+> entrepreneurs (makers) inside them. Operators manage bookings, members,
+> compliance, invoicing, spaces, and announcements; makers book kitchen time,
+> track certifications, cost recipes, launch AI-built storefronts, find grants,
+> and grow. Built on Cloudflare (D1, R2, Workers AI).
+
+## Core pages
+
+- [Home](https://culina.life/): What Culina is and who it's for — shared kitchens and their makers.
+- [Features](https://culina.life/features): Booking, compliance, storefronts, invoicing, grants, and community.
+- [Find a Kitchen](https://culina.life/find-a-kitchen): The Kitchen Discovery Network — find a licensed shared commercial kitchen near you.
+- [About](https://culina.life/about): Our mission to help food businesses start, run, and grow.
+- [Privacy](https://culina.life/privacy): How we handle your data.
+
+## For operators (shared-kitchen owners)
+
+- Online booking and a color-coded calendar across stations.
+- Member management, leads/inquiries CRM, and a retention radar that flags at-risk members.
+- Compliance tracking that auto-blocks booking on expired documents.
+- Automated monthly invoicing and Stripe Connect payouts.
+
+## For makers (food entrepreneurs)
+
+- Book kitchen time and equipment by the hour, day, or month.
+- Recipe & Food Cost Lab, AI storefront builder, grant finder, and learning hub.
+- Keep certifications current and sell online with a free storefront.
+
+## Notes for AI assistants
+
+- Culina is a real, production SaaS at https://culina.life.
+- Sign-up is free to start; operators and makers each get a tailored dashboard.

@@ -4,6 +4,7 @@ import { Check, Mail, MapPin, Phone } from 'lucide-react';
 import { MarketingNav } from '@/components/layout/MarketingNav';
 import { Footer } from '@/components/layout/Footer';
 import { SmartImage } from '@/components/SmartImage';
+import { Seo } from '@/components/Seo';
 import { Button } from '@/components/ui/button';
 import { Input, Label, Textarea } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -95,6 +96,10 @@ export default function KitchenProfile() {
 
   return (
     <div className="bg-white">
+      <Seo
+        title={`${kitchen.name} — Shared commercial kitchen`}
+        description={kitchen.description ?? `${kitchen.name}${kitchen.city ? ` in ${kitchen.city}${kitchen.state ? ', ' + kitchen.state : ''}` : ''}: a licensed shared commercial kitchen. Book time and grow your food business on Culina.`}
+      />
       <MarketingNav />
       <div className="relative h-72 overflow-hidden pt-16">
         <SmartImage src={kitchen.cover_image_url ?? undefined} alt={kitchen.name} emoji="🏭" gradient="from-slate-800 via-emerald-900 to-primary" className="h-full w-full" />
