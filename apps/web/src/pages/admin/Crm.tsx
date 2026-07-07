@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { Building2, Search, Mail, Phone, Globe, MapPin, ExternalLink, Users2, DollarSign, ShieldAlert, Plus, Tag, PhoneCall, CalendarClock, StickyNote } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 import { PageHeader, StatCard, EmptyState } from '@/components/ui/misc';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
@@ -21,6 +22,7 @@ import {
 import { memberHealth } from '@/lib/retention';
 import {
   useCrm,
+  initCrm,
   getCrm,
   addActivity,
   setStatus,
@@ -67,7 +69,11 @@ function inferStatus(c: Customer, explicit: CrmStatus | null): CrmStatus {
 }
 
 export default function Crm() {
+  const { profile } = useAuth();
   useCrm(); // re-render on any CRM change
+  React.useEffect(() => {
+    if (profile) initCrm(profile.id); // sets author + loads from D1 (live)
+  }, [profile]);
   const [query, setQuery] = React.useState('');
   const [filter, setFilter] = React.useState<'all' | CrmStatus>('all');
   const [selectedId, setSelectedId] = React.useState<string | null>(null);

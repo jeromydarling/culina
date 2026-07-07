@@ -43,6 +43,7 @@ const JSON_FIELDS: Record<string, string[]> = {
   orders: ['items', 'shipping_address'],
   grants: ['target_states', 'target_business_types'],
   learning_resources: ['tags'],
+  crm_customer: ['tags'],
 };
 
 // Tables writable via the generic upsert. Bookings are intentionally excluded —
@@ -52,6 +53,8 @@ const WRITABLE = new Set([
   'compliance_documents', 'leads', 'invoices', 'recipes', 'products', 'orders',
   'announcements', 'tenant_sites', 'notifications', 'access_credentials', 'mentor_requests',
   'email_subscribers', 'classifieds', 'community_posts', 'marketplace_transactions',
+  // Super-admin CRM (admin-only writes; enforced by canWrite's admin gate).
+  'crm_customer', 'crm_activity',
 ]);
 
 function toApp(table: string, row: any): any {
@@ -229,6 +232,14 @@ export async function handleData(path: string, request: Request, env: Env): Prom
 
   const profile = await authenticate(request, env);
   if (!profile) return error('Unauthorized', env, 401);
+
+  // ── Super-admin CRM: status/tags + the activity timeline ──────────────
+  if (path === 'crm' && request.method === 'GET') {
+    if (profile.role !== 'admin') return error('Forbidden', env, 403);
+    const customers = (await all(env, 'SELECT * FROM crm_customer')).map((r) => toApp('crm_customer', r));
+    const activities = await all(env, 'SELECT * FROM crm_activity ORDER BY created_at DESC LIMIT 2000');
+    return json({ customers, activities }, env);
+  }
 
   // ── Hydrate: only data the user is entitled to (no global PII dump) ────
   if (path === 'hydrate' && request.method === 'GET') {

@@ -1,13 +1,15 @@
 import * as React from 'react';
+import { isLive } from './config';
+import { persist, dataApi } from './dataApi';
 
 /**
- * Lightweight CRM layer for the super-admin area: per-customer status, tags,
- * and a human-first activity timeline (notes, calls, emails, meetings).
+ * CRM layer for the super-admin area: per-customer status, tags, and a
+ * human-first activity timeline (notes, calls, emails, meetings).
  *
- * Storage: browser-local (localStorage) behind a small reactive store. It's a
- * clean abstraction with a single call site, so moving it to a D1-backed
- * `crm_activity` table later is a drop-in change. Intentionally simple so the
- * CRM is useful today without a schema migration.
+ * Storage: a small reactive store backed by Cloudflare D1 in LIVE sessions
+ * (crm_customer + crm_activity via the generic upsert; see migration 0008),
+ * and by localStorage in DEMO sessions. Same public API either way — call
+ * initCrm(profileId) once from the CRM page to set the author and load.
  */
 export type CrmStatus = 'prospect' | 'active' | 'at_risk' | 'churned';
 export type ActivityKind = 'note' | 'call' | 'email' | 'meeting' | 'status';
@@ -44,26 +46,65 @@ export const ACTIVITY_LABEL: Record<ActivityKind, string> = {
 const KEY = 'culina_crm_v1';
 type DB = Record<string, CrmRecord>;
 
-let db: DB = load();
+let db: DB = loadLocal();
+let authorId: string | null = null;
+let loaded = false;
 const listeners = new Set<() => void>();
 
-function load(): DB {
+function loadLocal(): DB {
   try {
     return JSON.parse(localStorage.getItem(KEY) || '{}');
   } catch {
     return {};
   }
 }
-function persist() {
+function saveLocal() {
   try {
     localStorage.setItem(KEY, JSON.stringify(db));
   } catch {
     /* ignore quota */
   }
-  listeners.forEach((l) => l());
 }
-function rid() {
-  return Math.random().toString(36).slice(2, 10);
+const notify = () => listeners.forEach((l) => l());
+const rid = () => Math.random().toString(36).slice(2, 10);
+
+/** Call once from the CRM page: sets the activity author and (live) loads from D1. */
+export function initCrm(profileId: string) {
+  authorId = profileId;
+  if (isLive() && !loaded) {
+    loaded = true;
+    void loadFromApi();
+  }
+}
+
+async function loadFromApi() {
+  try {
+    const data = await dataApi.crm();
+    const next: DB = {};
+    for (const c of data.customers) {
+      next[c.id] = { status: c.status ?? null, tags: Array.isArray(c.tags) ? c.tags : [], activities: [], lastContacted: c.last_contacted ?? null };
+    }
+    for (const a of data.activities) {
+      const r = (next[a.kitchen_id] ??= { status: null, tags: [], activities: [], lastContacted: null });
+      r.activities.push({ id: a.id, ts: a.created_at, kind: a.kind, body: a.body });
+    }
+    for (const k of Object.keys(next)) next[k].activities.sort((x, y) => y.ts.localeCompare(x.ts));
+    db = next;
+    notify();
+  } catch {
+    /* keep whatever we have (offline / not yet migrated) */
+  }
+}
+
+// Write-through to D1 (live only). crm_customer holds status/tags/last_contacted.
+function syncCustomer(id: string) {
+  if (!isLive()) return;
+  const r = db[id];
+  if (r) persist('crm_customer', { id, status: r.status, tags: r.tags, last_contacted: r.lastContacted, updated_at: new Date().toISOString() });
+}
+function syncActivity(kitchenId: string, a: CrmActivity) {
+  if (!isLive()) return;
+  persist('crm_activity', { id: a.id, kitchen_id: kitchenId, author_id: authorId, kind: a.kind, body: a.body, created_at: a.ts });
 }
 
 const EMPTY: CrmRecord = { status: null, tags: [], activities: [], lastContacted: null };
@@ -76,23 +117,38 @@ function edit(id: string, fn: (r: CrmRecord) => void) {
   const r: CrmRecord = db[id] ? { ...db[id] } : { status: null, tags: [], activities: [], lastContacted: null };
   fn(r);
   db = { ...db, [id]: r };
-  persist();
+  if (!isLive()) saveLocal();
+  notify();
 }
 
 export function addActivity(id: string, kind: ActivityKind, body: string) {
+  const a: CrmActivity = { id: rid(), ts: new Date().toISOString(), kind, body };
+  let touched = false;
   edit(id, (r) => {
-    r.activities = [{ id: rid(), ts: new Date().toISOString(), kind, body }, ...r.activities];
-    if (kind === 'call' || kind === 'email' || kind === 'meeting') r.lastContacted = new Date().toISOString();
+    r.activities = [a, ...r.activities];
+    if (kind === 'call' || kind === 'email' || kind === 'meeting') {
+      r.lastContacted = a.ts;
+      touched = true;
+    }
   });
+  syncActivity(id, a);
+  if (touched) syncCustomer(id);
 }
 
 export function setStatus(id: string, status: CrmStatus) {
+  const a: CrmActivity = { id: rid(), ts: new Date().toISOString(), kind: 'status', body: `Status set to ${CRM_STATUS_LABEL[status]}` };
+  let changed = false;
   edit(id, (r) => {
     if (r.status !== status) {
       r.status = status;
-      r.activities = [{ id: rid(), ts: new Date().toISOString(), kind: 'status', body: `Status set to ${CRM_STATUS_LABEL[status]}` }, ...r.activities];
+      r.activities = [a, ...r.activities];
+      changed = true;
     }
   });
+  if (changed) {
+    syncActivity(id, a);
+    syncCustomer(id);
+  }
 }
 
 export function toggleTag(id: string, tag: string) {
@@ -101,6 +157,7 @@ export function toggleTag(id: string, tag: string) {
   edit(id, (r) => {
     r.tags = r.tags.includes(t) ? r.tags.filter((x) => x !== t) : [...r.tags, t];
   });
+  syncCustomer(id);
 }
 
 /** Reactive read of the whole CRM db (re-renders on any change). */
