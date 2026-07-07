@@ -89,6 +89,8 @@ export function hydrate(payload: Record<string, unknown[]>) {
 
 // ─── Profiles ─────────────────────────────────────────────────────────────
 export const getProfile = (id: string) => state.profiles.find((p) => p.id === id) ?? null;
+/** Every profile (super-admin only surfaces this). */
+export const listProfiles = () => state.profiles;
 
 // ─── Kitchens ─────────────────────────────────────────────────────────────
 export const listKitchens = () => state.kitchens;

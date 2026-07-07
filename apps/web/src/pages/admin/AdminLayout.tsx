@@ -1,9 +1,10 @@
 import { Outlet } from 'react-router-dom';
-import { LayoutDashboard, Building2, Users, Wallet, BookOpen, DollarSign, Globe, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Contact, Building2, Users, Wallet, BookOpen, DollarSign, Globe, AlertTriangle } from 'lucide-react';
 import { DashboardLayout, type NavItem } from '@/components/layout/DashboardLayout';
 
 const nav: NavItem[] = [
   { to: '/admin', label: 'Platform Overview', icon: LayoutDashboard },
+  { to: '/admin/crm', label: 'CRM', icon: Contact },
   { to: '/admin/revenue', label: 'Revenue', icon: DollarSign },
   { to: '/admin/kitchens', label: 'Kitchens', icon: Building2 },
   { to: '/admin/users', label: 'Users', icon: Users },

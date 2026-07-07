@@ -63,6 +63,7 @@ const TenantOnboarding = lazy(() => import('@/pages/tenant/Onboarding'));
 const AdminLayout = lazy(() => import('@/pages/admin/AdminLayout'));
 const AdminOverview = lazy(() => import('@/pages/admin/Overview'));
 const AdminRevenue = lazy(() => import('@/pages/admin/Revenue'));
+const AdminCrm = lazy(() => import('@/pages/admin/Crm'));
 const AdminKitchens = lazy(() => import('@/pages/admin/Kitchens'));
 const AdminUsers = lazy(() => import('@/pages/admin/Users'));
 const AdminGrants = lazy(() => import('@/pages/admin/Grants'));
@@ -170,6 +171,7 @@ export default function App() {
         >
           <Route index element={<AdminOverview />} />
           <Route path="revenue" element={<AdminRevenue />} />
+          <Route path="crm" element={<AdminCrm />} />
           <Route path="kitchens" element={<AdminKitchens />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="grants" element={<AdminGrants />} />
