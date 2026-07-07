@@ -73,7 +73,7 @@ export const dataApi = {
     req<{ ok: boolean; mode: 'added' | 'invited'; lead: any }>(`leads/${id}/convert`, { method: 'POST', body: JSON.stringify({ membership_type: membershipType }) }),
   errors: () => req<{ errors: any[] }>('errors'),
   // Super-admin CRM: per-customer status/tags + the activity timeline.
-  crm: () => req<{ customers: any[]; activities: any[] }>('crm'),
+  crm: () => req<{ customers: any[]; activities: any[]; tasks: any[] }>('crm'),
   exportUrl: () => `${API_URL}/api/account/export`,
   async deleteAccount(): Promise<{ ok: boolean }> {
     const res = await fetch(`${API_URL}/api/account/delete`, {

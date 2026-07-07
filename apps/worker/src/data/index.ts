@@ -33,6 +33,7 @@ const BOOL_FIELDS: Record<string, string[]> = {
   grants: ['is_recurring', 'is_active'],
   learning_resources: ['is_free'],
   white_label_configs: ['is_active'],
+  crm_task: ['done'],
 };
 const JSON_FIELDS: Record<string, string[]> = {
   kitchens: ['amenities'],
@@ -54,7 +55,7 @@ const WRITABLE = new Set([
   'announcements', 'tenant_sites', 'notifications', 'access_credentials', 'mentor_requests',
   'email_subscribers', 'classifieds', 'community_posts', 'marketplace_transactions',
   // Super-admin CRM (admin-only writes; enforced by canWrite's admin gate).
-  'crm_customer', 'crm_activity',
+  'crm_customer', 'crm_activity', 'crm_task',
 ]);
 
 function toApp(table: string, row: any): any {
@@ -238,7 +239,8 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     if (profile.role !== 'admin') return error('Forbidden', env, 403);
     const customers = (await all(env, 'SELECT * FROM crm_customer')).map((r) => toApp('crm_customer', r));
     const activities = await all(env, 'SELECT * FROM crm_activity ORDER BY created_at DESC LIMIT 2000');
-    return json({ customers, activities }, env);
+    const tasks = (await all(env, 'SELECT * FROM crm_task ORDER BY due_date')).map((r) => toApp('crm_task', r));
+    return json({ customers, activities, tasks }, env);
   }
 
   // ── Hydrate: only data the user is entitled to (no global PII dump) ────

@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
-import { Building2, Search, Mail, Phone, Globe, MapPin, ExternalLink, Users2, DollarSign, ShieldAlert, Plus, Tag, PhoneCall, CalendarClock, StickyNote } from 'lucide-react';
+import { Building2, Search, Mail, Phone, Globe, MapPin, ExternalLink, Users2, DollarSign, ShieldAlert, Plus, Tag, PhoneCall, CalendarClock, StickyNote, CheckCircle2, Circle, ListChecks } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { PageHeader, StatCard, EmptyState } from '@/components/ui/misc';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,9 @@ import {
   addActivity,
   setStatus,
   toggleTag,
+  addTask,
+  toggleTask,
+  openTasks,
   STATE_CENTROIDS,
   CRM_STATUS_LABEL,
   ACTIVITY_LABEL,
@@ -130,6 +133,7 @@ export default function Crm() {
   const totalMrr = customers.reduce((s, c) => s + (c.active > 0 ? c.kitchen.monthly_price_cents : 0), 0);
   const withRisk = customers.filter((c) => c.atRisk > 0).length;
   const selected = customers.find((c) => c.kitchen.id === selectedId) ?? null;
+  const nameById = React.useMemo(() => new Map(customers.map((c) => [c.kitchen.id, c.kitchen.name])), [customers]);
 
   return (
     <div>
@@ -144,6 +148,8 @@ export default function Crm() {
         <StatCard label="With at-risk members" value={String(withRisk)} icon={ShieldAlert} hint={withRisk ? 'worth a check-in' : 'all steady'} />
         <StatCard label="MRR" value={formatCents(totalMrr)} icon={DollarSign} hint="active plans" />
       </div>
+
+      <FollowUps nameById={nameById} onOpen={setSelectedId} />
 
       <div className="mb-6 rounded-lg border bg-card p-4 shadow-card">
         <div className="mb-3 flex items-center justify-between">
@@ -217,12 +223,60 @@ export default function Crm() {
   );
 }
 
+/* ─────────────────────────── Follow-ups surface ─────────────────────────── */
+function FollowUps({ nameById, onOpen }: { nameById: Map<string, string>; onOpen: (id: string) => void }) {
+  const db = useCrm();
+  const tasks = openTasks(db);
+  if (tasks.length === 0) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const groups: [string, typeof tasks, string][] = [
+    ['Overdue', tasks.filter((t) => t.task.dueDate && t.task.dueDate < today), 'text-red-600'],
+    ['Due today', tasks.filter((t) => t.task.dueDate === today), 'text-amber-600'],
+    ['Upcoming', tasks.filter((t) => !t.task.dueDate || t.task.dueDate > today), 'text-muted-foreground'],
+  ];
+  const overdue = groups[0][1].length;
+  return (
+    <div className="mb-6 rounded-lg border bg-card p-4 shadow-card">
+      <div className="mb-3 flex items-center gap-2">
+        <ListChecks className="h-4 w-4 text-primary" />
+        <h2 className="font-heading font-semibold">Follow-ups</h2>
+        <span className="text-xs text-muted-foreground">{tasks.length} open{overdue ? ` · ${overdue} overdue` : ''}</span>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        {groups.map(([label, items, color]) => (
+          <div key={label}>
+            <div className={`mb-1.5 text-xs font-semibold uppercase tracking-wider ${color}`}>{label} ({items.length})</div>
+            {items.length === 0 ? (
+              <p className="text-xs text-muted-foreground">—</p>
+            ) : (
+              <div className="space-y-1.5">
+                {items.slice(0, 6).map(({ kitchenId, task }) => (
+                  <div key={task.id} className="flex items-start gap-2 rounded-md border p-2">
+                    <button onClick={() => toggleTask(kitchenId, task.id)} aria-label="Mark done" className="mt-0.5 text-muted-foreground hover:text-emerald-600"><Circle className="h-4 w-4" /></button>
+                    <button onClick={() => onOpen(kitchenId)} className="min-w-0 flex-1 text-left">
+                      <div className="truncate text-sm font-medium">{task.title}</div>
+                      <div className="truncate text-[11px] text-muted-foreground">{nameById.get(kitchenId) ?? 'Customer'}{task.dueDate ? ` · ${task.dueDate}` : ''}</div>
+                    </button>
+                  </div>
+                ))}
+                {items.length > 6 && <p className="text-[11px] text-muted-foreground">+{items.length - 6} more</p>}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────────────────── Customer detail ─────────────────────────── */
 function CustomerDrawer({ customer, onClose }: { customer: Customer | null; onClose: () => void }) {
   useCrm();
   const [tag, setTag] = React.useState('');
   const [kind, setKind] = React.useState<ActivityKind>('note');
   const [body, setBody] = React.useState('');
+  const [taskTitle, setTaskTitle] = React.useState('');
+  const [taskDue, setTaskDue] = React.useState('');
   if (!customer) return null;
   const k = customer.kitchen;
   const crm = getCrm(k.id);
@@ -287,6 +341,33 @@ function CustomerDrawer({ customer, onClose }: { customer: Customer | null; onCl
               <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="add tag" className="w-24 rounded-full border px-2.5 py-0.5 text-xs outline-none" />
             </form>
           </div>
+        </div>
+
+        {/* follow-ups */}
+        <div>
+          <div className="mb-1.5 flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground"><ListChecks className="h-3 w-3" /> Follow-ups</div>
+          <div className="space-y-1.5">
+            {crm.tasks.length === 0 && <p className="text-xs text-muted-foreground">No follow-ups yet — add a reminder so this customer never slips.</p>}
+            {crm.tasks
+              .slice()
+              .sort((a, b) => Number(a.done) - Number(b.done) || (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999'))
+              .map((t) => (
+                <div key={t.id} className="flex items-center gap-2 rounded-md border p-2">
+                  <button onClick={() => toggleTask(k.id, t.id)} aria-label="Toggle done">
+                    {t.done ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <Circle className="h-4 w-4 text-muted-foreground" />}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className={`truncate text-sm ${t.done ? 'text-muted-foreground line-through' : 'font-medium'}`}>{t.title}</div>
+                    {t.dueDate && !t.done && <div className={`text-[11px] ${t.dueDate < new Date().toISOString().slice(0, 10) ? 'font-medium text-red-600' : 'text-muted-foreground'}`}>Due {t.dueDate}</div>}
+                  </div>
+                </div>
+              ))}
+          </div>
+          <form onSubmit={(e) => { e.preventDefault(); addTask(k.id, taskTitle, taskDue || null); setTaskTitle(''); setTaskDue(''); }} className="mt-2 flex gap-2">
+            <Input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Add a follow-up…" />
+            <Input type="date" value={taskDue} onChange={(e) => setTaskDue(e.target.value)} className="w-40" />
+            <Button type="submit"><Plus className="h-4 w-4" /></Button>
+          </form>
         </div>
 
         {/* log activity */}

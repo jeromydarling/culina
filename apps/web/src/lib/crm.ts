@@ -21,10 +21,19 @@ export interface CrmActivity {
   body: string;
 }
 
+export interface CrmTask {
+  id: string;
+  title: string;
+  dueDate: string | null; // YYYY-MM-DD
+  done: boolean;
+  createdAt: string;
+}
+
 export interface CrmRecord {
   status: CrmStatus | null;
   tags: string[];
   activities: CrmActivity[];
+  tasks: CrmTask[];
   lastContacted: string | null;
 }
 
@@ -82,11 +91,15 @@ async function loadFromApi() {
     const data = await dataApi.crm();
     const next: DB = {};
     for (const c of data.customers) {
-      next[c.id] = { status: c.status ?? null, tags: Array.isArray(c.tags) ? c.tags : [], activities: [], lastContacted: c.last_contacted ?? null };
+      next[c.id] = { status: c.status ?? null, tags: Array.isArray(c.tags) ? c.tags : [], activities: [], tasks: [], lastContacted: c.last_contacted ?? null };
     }
     for (const a of data.activities) {
-      const r = (next[a.kitchen_id] ??= { status: null, tags: [], activities: [], lastContacted: null });
+      const r = (next[a.kitchen_id] ??= { status: null, tags: [], activities: [], tasks: [], lastContacted: null });
       r.activities.push({ id: a.id, ts: a.created_at, kind: a.kind, body: a.body });
+    }
+    for (const t of data.tasks ?? []) {
+      const r = (next[t.kitchen_id] ??= { status: null, tags: [], activities: [], tasks: [], lastContacted: null });
+      r.tasks.push({ id: t.id, title: t.title, dueDate: t.due_date ?? null, done: !!t.done, createdAt: t.created_at });
     }
     for (const k of Object.keys(next)) next[k].activities.sort((x, y) => y.ts.localeCompare(x.ts));
     db = next;
@@ -107,14 +120,14 @@ function syncActivity(kitchenId: string, a: CrmActivity) {
   persist('crm_activity', { id: a.id, kitchen_id: kitchenId, author_id: authorId, kind: a.kind, body: a.body, created_at: a.ts });
 }
 
-const EMPTY: CrmRecord = { status: null, tags: [], activities: [], lastContacted: null };
+const EMPTY: CrmRecord = { status: null, tags: [], activities: [], tasks: [], lastContacted: null };
 
 export function getCrm(id: string): CrmRecord {
   return db[id] ?? EMPTY;
 }
 
 function edit(id: string, fn: (r: CrmRecord) => void) {
-  const r: CrmRecord = db[id] ? { ...db[id] } : { status: null, tags: [], activities: [], lastContacted: null };
+  const r: CrmRecord = db[id] ? { ...db[id] } : { status: null, tags: [], activities: [], tasks: [], lastContacted: null };
   fn(r);
   db = { ...db, [id]: r };
   if (!isLive()) saveLocal();
@@ -158,6 +171,45 @@ export function toggleTag(id: string, tag: string) {
     r.tags = r.tags.includes(t) ? r.tags.filter((x) => x !== t) : [...r.tags, t];
   });
   syncCustomer(id);
+}
+
+/* ───────────────────────── Follow-up tasks / reminders ─────────────────────── */
+function syncTask(kitchenId: string, task: CrmTask) {
+  if (!isLive()) return;
+  const now = new Date().toISOString();
+  persist('crm_task', { id: task.id, kitchen_id: kitchenId, title: task.title, due_date: task.dueDate, done: task.done, author_id: authorId, created_at: task.createdAt, updated_at: now });
+}
+
+export function addTask(id: string, title: string, dueDate: string | null) {
+  const t = title.trim();
+  if (!t) return;
+  const task: CrmTask = { id: rid(), title: t, dueDate: dueDate || null, done: false, createdAt: new Date().toISOString() };
+  edit(id, (r) => {
+    r.tasks = [...r.tasks, task];
+  });
+  syncTask(id, task);
+}
+
+export function toggleTask(id: string, taskId: string) {
+  let updated: CrmTask | undefined;
+  edit(id, (r) => {
+    r.tasks = r.tasks.map((t) => (t.id === taskId ? (updated = { ...t, done: !t.done }) : t));
+  });
+  if (updated) syncTask(id, updated);
+}
+
+export interface OpenTask {
+  kitchenId: string;
+  task: CrmTask;
+}
+
+/** Every not-done task across customers, soonest due first (undated last). */
+export function openTasks(all: DB): OpenTask[] {
+  const out: OpenTask[] = [];
+  for (const [kitchenId, r] of Object.entries(all)) {
+    for (const task of r.tasks) if (!task.done) out.push({ kitchenId, task });
+  }
+  return out.sort((a, b) => (a.task.dueDate ?? '9999').localeCompare(b.task.dueDate ?? '9999'));
 }
 
 /** Reactive read of the whole CRM db (re-renders on any change). */
