@@ -30,12 +30,16 @@ import {
   addTask,
   toggleTask,
   openTasks,
+  refreshCrm,
   STATE_CENTROIDS,
   CRM_STATUS_LABEL,
   ACTIVITY_LABEL,
   type CrmStatus,
   type ActivityKind,
 } from '@/lib/crm';
+import { dataApi } from '@/lib/dataApi';
+import { isLive } from '@/lib/config';
+import { notifyError } from '@/lib/errors';
 import { formatCents } from '@culina/shared';
 import type { Kitchen } from '@culina/shared';
 
@@ -80,6 +84,7 @@ export default function Crm() {
   const [query, setQuery] = React.useState('');
   const [filter, setFilter] = React.useState<'all' | CrmStatus>('all');
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [bulkOpen, setBulkOpen] = React.useState(false);
 
   const customers: Customer[] = React.useMemo(() => {
     return listKitchens().map((kitchen) => {
@@ -177,9 +182,14 @@ export default function Crm() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2 rounded-lg border bg-card px-3 shadow-card sm:w-72">
-          <Search className="h-4 w-4 text-muted-foreground" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a customer, city, or operator" className="flex-1 bg-transparent py-2 text-sm outline-none" />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-lg border bg-card px-3 shadow-card sm:w-64">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a customer, city, or operator" className="flex-1 bg-transparent py-2 text-sm outline-none" />
+          </div>
+          <Button variant="outline" disabled={visible.length === 0} onClick={() => setBulkOpen(true)}>
+            <Mail className="h-4 w-4" /> Email segment ({visible.length})
+          </Button>
         </div>
       </div>
 
@@ -219,6 +229,7 @@ export default function Crm() {
       )}
 
       <CustomerDrawer customer={selected} onClose={() => setSelectedId(null)} />
+      <BulkEmailModal open={bulkOpen} onClose={() => setBulkOpen(false)} recipients={visible} segmentLabel={filter === 'all' ? 'All customers' : CRM_STATUS_LABEL[filter]} />
     </div>
   );
 }
@@ -407,6 +418,57 @@ function CustomerDrawer({ customer, onClose }: { customer: Customer | null; onCl
             </div>
           )}
         </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ─────────────────────────── Bulk segment email ─────────────────────────── */
+function BulkEmailModal({ open, onClose, recipients, segmentLabel }: { open: boolean; onClose: () => void; recipients: Customer[]; segmentLabel: string }) {
+  const [subject, setSubject] = React.useState('A note from the Culina team');
+  const [message, setMessage] = React.useState(
+    'Hi {{name}},\n\nA quick note from us about {{kitchen}} — \n\nWarmly,\nThe Culina team',
+  );
+  const [sending, setSending] = React.useState(false);
+
+  async function send() {
+    if (!message.trim() || !subject.trim()) return toast.error('Subject and message are both needed.');
+    setSending(true);
+    try {
+      const ids = recipients.map((r) => r.kitchen.id);
+      if (isLive()) {
+        const res = await dataApi.crmBulkEmail(ids, subject, message);
+        await refreshCrm(); // pull the server-logged timeline entries
+        toast.success(`Sent to ${res.sent} of ${res.total}${res.skipped ? ` (${res.skipped} had no email)` : ''}`);
+      } else {
+        ids.forEach((id) => addActivity(id, 'email', `Segment email: ${subject}`));
+        toast.success(`Sent to ${ids.length} customers (demo)`);
+      }
+      onClose();
+    } catch (e) {
+      notifyError(e);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={`Email this segment`} description={`${segmentLabel} · ${recipients.length} customer${recipients.length === 1 ? '' : 's'} — sent one at a time, personalized, with replies to your inbox.`}>
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-1">
+          {recipients.slice(0, 8).map((r) => (
+            <span key={r.kitchen.id} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{r.kitchen.name}</span>
+          ))}
+          {recipients.length > 8 && <span className="text-xs text-muted-foreground">+{recipients.length - 8} more</span>}
+        </div>
+        <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" />
+        <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={7} />
+        <p className="text-xs text-muted-foreground">
+          Personalization: <code className="rounded bg-muted px-1">{'{{name}}'}</code> → operator's first name, <code className="rounded bg-muted px-1">{'{{kitchen}}'}</code> → kitchen name. Each send is logged to the customer's timeline.
+        </p>
+        <Button className="w-full" disabled={sending} onClick={send}>
+          <Mail className="h-4 w-4" /> {sending ? 'Sending…' : `Send to ${recipients.length}`}
+        </Button>
       </div>
     </Modal>
   );

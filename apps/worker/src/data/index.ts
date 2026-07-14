@@ -243,6 +243,46 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     return json({ customers, activities, tasks }, env);
   }
 
+  // ── Bulk email a filtered CRM segment (admin only) ─────────────────────
+  if (path === 'crm/bulk-email' && request.method === 'POST') {
+    if (profile.role !== 'admin') return error('Forbidden', env, 403);
+    const body: any = await request.json().catch(() => ({}));
+    const ids: string[] = Array.isArray(body.kitchen_ids) ? body.kitchen_ids.slice(0, 200).map(String) : [];
+    const subject = String(body.subject ?? '').trim().slice(0, 200);
+    const message = String(body.message ?? '').trim().slice(0, 5000);
+    if (!ids.length) return error('No recipients in this segment.', env, 400);
+    if (!subject || !message) return error('Subject and message are required.', env, 400);
+
+    const now = new Date().toISOString();
+    let sent = 0;
+    let skipped = 0;
+    for (const id of ids) {
+      const k = await db.prepare(
+        'SELECT k.id, k.name, k.email AS kitchen_email, p.email AS operator_email, p.full_name FROM kitchens k LEFT JOIN profiles p ON p.id = k.operator_id WHERE k.id = ?',
+      ).bind(id).first<any>();
+      const to = k?.operator_email || k?.kitchen_email;
+      if (!k || !to) { skipped++; continue; }
+
+      // Light personalization so bulk still reads like a person wrote it.
+      const first = (k.full_name ?? '').trim().split(' ')[0] || 'there';
+      const personalized = message.replaceAll('{{kitchen}}', k.name).replaceAll('{{name}}', first);
+      const ok = await sendEmail(env, to, subject.replaceAll('{{kitchen}}', k.name).replaceAll('{{name}}', first),
+        templates.leadMessage({ kitchen: 'Culina', senderName: profile.full_name ?? 'The Culina team', message: personalized }),
+        undefined, profile.email);
+      if (ok) sent++;
+
+      // Log the touch on the customer's timeline + bump last_contacted.
+      await db.batch([
+        db.prepare('INSERT INTO crm_activity (id, kitchen_id, author_id, kind, body, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+          .bind(uuid(), k.id, profile.id, 'email', `Segment email: ${subject}`, now),
+        db.prepare(`INSERT INTO crm_customer (id, last_contacted, updated_at) VALUES (?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET last_contacted = excluded.last_contacted, updated_at = excluded.updated_at`)
+          .bind(k.id, now, now),
+      ]);
+    }
+    return json({ ok: true, sent, skipped, total: ids.length }, env);
+  }
+
   // ── Hydrate: only data the user is entitled to (no global PII dump) ────
   if (path === 'hydrate' && request.method === 'GET') {
     const out: Record<string, any[]> = {

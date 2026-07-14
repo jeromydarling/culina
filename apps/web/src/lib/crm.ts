@@ -86,6 +86,11 @@ export function initCrm(profileId: string) {
   }
 }
 
+/** Re-pull from D1 (live) — e.g. after a server-side bulk action logged activities. */
+export async function refreshCrm() {
+  if (isLive()) await loadFromApi();
+}
+
 async function loadFromApi() {
   try {
     const data = await dataApi.crm();

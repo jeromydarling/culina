@@ -74,6 +74,9 @@ export const dataApi = {
   errors: () => req<{ errors: any[] }>('errors'),
   // Super-admin CRM: per-customer status/tags + the activity timeline.
   crm: () => req<{ customers: any[]; activities: any[]; tasks: any[] }>('crm'),
+  // Super-admin CRM: bulk email the operators of a filtered customer segment.
+  crmBulkEmail: (kitchenIds: string[], subject: string, message: string) =>
+    req<{ ok: boolean; sent: number; skipped: number; total: number }>('crm/bulk-email', { method: 'POST', body: JSON.stringify({ kitchen_ids: kitchenIds, subject, message }) }),
   exportUrl: () => `${API_URL}/api/account/export`,
   async deleteAccount(): Promise<{ ok: boolean }> {
     const res = await fetch(`${API_URL}/api/account/delete`, {
