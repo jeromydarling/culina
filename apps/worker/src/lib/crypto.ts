@@ -47,11 +47,11 @@ export async function verifyJwt(token: string, secret: string): Promise<JwtPaylo
   return payload;
 }
 
-// Current PBKDF2 work factor for NEW hashes (OWASP-recommended for SHA-256).
-// The stored format doesn't record iterations, so verification also tries the
-// legacy count — existing accounts keep logging in unchanged.
-const PBKDF2_ITERATIONS = 600_000;
-const LEGACY_PBKDF2_ITERATIONS = 100_000;
+// PBKDF2 work factor. Cloudflare Workers' WebCrypto HARD-CAPS PBKDF2 at
+// 100,000 iterations — deriveBits throws NotSupportedError above that
+// (incident 9d56a14f broke signup AND login in prod at 600k). 100k is the
+// platform maximum; going higher requires a different KDF, not a bigger number.
+const PBKDF2_ITERATIONS = 100_000;
 
 export async function hashPassword(password: string, saltHex?: string, iterations = PBKDF2_ITERATIONS): Promise<{ hash: string; salt: string }> {
   const salt = saltHex ? b64urlDecode(saltHex) : crypto.getRandomValues(new Uint8Array(16));
@@ -73,12 +73,10 @@ function digestsEqual(a: string, b: string): boolean {
 }
 
 export async function verifyPassword(password: string, hash: string, salt: string): Promise<boolean> {
-  // Try the current work factor first, then fall back to the legacy one so
-  // accounts hashed before the bump still verify.
-  const current = await hashPassword(password, salt, PBKDF2_ITERATIONS);
-  if (digestsEqual(current.hash, hash)) return true;
-  const legacy = await hashPassword(password, salt, LEGACY_PBKDF2_ITERATIONS);
-  return digestsEqual(legacy.hash, hash);
+  // Every stored hash is 100k (the 600k experiment could never mint a hash —
+  // the platform throws above 100k), so a single derivation is correct.
+  const candidate = await hashPassword(password, salt, PBKDF2_ITERATIONS);
+  return digestsEqual(candidate.hash, hash);
 }
 
 export function uuid(): string {

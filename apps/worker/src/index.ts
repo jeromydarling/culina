@@ -33,6 +33,8 @@ const handler = {
       return await route(request, env);
     } catch (e) {
       // Last-resort handler: log with an incident id, return a friendly error.
+      // Explicitly forward to Sentry — a caught error never reaches withSentry.
+      Sentry.captureException(e);
       const incident = await logError(env, 'server', (e as Error).message, { stack: (e as Error).stack, url: request.url });
       return json({ error: 'Something went wrong on our end. Our team has been notified.', incident }, env, 500);
     }

@@ -1,4 +1,4 @@
-# Culina — https://culina.life
+# Culina - https://culina.life
 User-agent: *
 Allow: /
 
