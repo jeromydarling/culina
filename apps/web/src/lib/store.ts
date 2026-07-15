@@ -577,9 +577,14 @@ export const getTenantSite = (tenantId: string) =>
 export const getTenantSiteBySlug = (slug: string) =>
   state.tenantSites.find((s) => s.site_slug === slug) ?? null;
 export const upsertTenantSite = (site: Partial<TenantSite> & { tenant_id: string; site_slug: string }): TenantSite => {
+  // Never persist the editor's placeholder id — spreading `id: 'new'` into the
+  // row let the FIRST maker to save claim the literal D1 id "new", after which
+  // every other new maker's save hit that foreign row and 403'd.
+  const { id: rawId, ...patch } = site;
+  const safe = rawId && rawId !== 'new' ? { id: rawId, ...patch } : patch;
   const existing = state.tenantSites.find((s) => s.tenant_id === site.tenant_id);
   if (existing) {
-    Object.assign(existing, site, { updated_at: new Date().toISOString() });
+    Object.assign(existing, safe, { updated_at: new Date().toISOString() });
     wt('tenant_sites', existing);
     return existing;
   }
@@ -604,7 +609,7 @@ export const upsertTenantSite = (site: Partial<TenantSite> & { tenant_id: string
     meta_description: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    ...site,
+    ...safe,
   } as TenantSite;
   state.tenantSites.push(created);
   wt('tenant_sites', created);
