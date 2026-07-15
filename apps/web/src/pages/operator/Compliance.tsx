@@ -1,12 +1,10 @@
 import * as React from 'react';
 import { useForceUpdate } from '@/lib/hooks';
 import { toast } from 'sonner';
-import { Mail } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { PageHeader } from '@/components/ui/misc';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
-import { Select, Label, Input, Textarea } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import {
   getKitchenByOperator,
@@ -53,7 +51,6 @@ export default function Compliance() {
       <PageHeader
         title="Compliance"
         description="Every member × required document. Bookings are auto-blocked when a required doc is expired."
-        action={<Button variant="outline" onClick={() => toast.success('A friendly reminder is on its way to members with gaps (demo).')}><Mail className="h-4 w-4" /> Email reminders</Button>}
       />
 
       <div className="overflow-x-auto rounded-lg border bg-card shadow-card">

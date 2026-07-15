@@ -1,12 +1,9 @@
 import * as React from 'react';
 import { Link } from 'react-router-dom';
-import { toast } from 'sonner';
-import { Mail, UserPlus, Database, Sparkles, PartyPopper } from 'lucide-react';
+import { UserPlus, Database, Sparkles, PartyPopper } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { PageHeader, Spinner } from '@/components/ui/misc';
 import { Button } from '@/components/ui/button';
-import { Modal } from '@/components/ui/modal';
-import { Input, Label } from '@/components/ui/input';
 import { Badge, statusVariant } from '@/components/ui/badge';
 import { getKitchenByOperator, listMemberships, getTenantProfile, getProfile } from '@/lib/store';
 import { dataApi, type TenantRow } from '@/lib/dataApi';
@@ -45,7 +42,6 @@ const firstName = (full: string | null, email: string) => (full?.trim().split(' 
 export default function Tenants() {
   const { profile } = useAuth();
   const kitchen = getKitchenByOperator(profile!.id);
-  const [invite, setInvite] = React.useState(false);
   const [rows, setRows] = React.useState<TenantRow[] | null>(null);
   const [loading, setLoading] = React.useState(isLive());
 
@@ -85,7 +81,7 @@ export default function Tenants() {
         action={
           <>
             <Link to="/operator/onboarding"><Button variant="outline"><Database className="h-4 w-4" /> Import</Button></Link>
-            <Button onClick={() => setInvite(true)}><UserPlus className="h-4 w-4" /> Welcome someone in</Button>
+            <Link to="/operator/leads"><Button><UserPlus className="h-4 w-4" /> Welcome someone in</Button></Link>
           </>
         }
       />
@@ -153,16 +149,6 @@ export default function Tenants() {
           </table>
         </div>
       )}
-
-      <Modal open={invite} onClose={() => setInvite(false)} title="Welcome someone in" description="Send a warm invitation to join your kitchen.">
-        <form onSubmit={(e) => { e.preventDefault(); setInvite(false); toast.success('Invitation on its way (demo).'); }} className="space-y-3">
-          <div><Label>Email</Label><Input type="email" required placeholder="maker@business.com" /></div>
-          <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
-            <Mail className="h-4 w-4" /> They’ll get a friendly note with a link to join {kitchen?.name}.
-          </div>
-          <Button type="submit" className="w-full">Send invitation</Button>
-        </form>
-      </Modal>
     </div>
   );
 }

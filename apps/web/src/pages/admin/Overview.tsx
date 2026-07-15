@@ -2,11 +2,16 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianG
 import { Building2, Users, CalendarCheck, DollarSign } from 'lucide-react';
 import { PageHeader, StatCard } from '@/components/ui/misc';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { listKitchens, listGrants, listLearning } from '@/lib/store';
+import { listKitchens, listGrants, listLearning, listProfiles, listBookings } from '@/lib/store';
 import { formatCents } from '@culina/shared';
 
 export default function Overview() {
   const kitchens = listKitchens();
+  const makers = listProfiles().filter((p) => p.role === 'tenant').length;
+  const bookings30 = listBookings().filter(
+    (b) => new Date(b.start_time) >= new Date(Date.now() - 30 * 864e5) && b.status !== 'cancelled',
+  );
+  const feeRevenue = bookings30.reduce((s, b) => s + b.platform_fee_cents, 0);
   const mrr = [
     { m: 'Jan', v: 2100 }, { m: 'Feb', v: 2600 }, { m: 'Mar', v: 3200 },
     { m: 'Apr', v: 3900 }, { m: 'May', v: 4700 }, { m: 'Jun', v: 5600 },
@@ -16,10 +21,10 @@ export default function Overview() {
     <div>
       <PageHeader title="Platform Overview" description="Culina at a glance." />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Kitchens" value={String(kitchens.length)} icon={Building2} trend={{ value: '+2', positive: true }} hint="this month" />
-        <StatCard label="Makers" value="128" icon={Users} trend={{ value: '+14', positive: true }} />
-        <StatCard label="Bookings (30d)" value="412" icon={CalendarCheck} />
-        <StatCard label="Platform fee revenue" value={formatCents(560000)} icon={DollarSign} trend={{ value: '+19%', positive: true }} />
+        <StatCard label="Kitchens" value={String(kitchens.length)} icon={Building2} />
+        <StatCard label="Makers" value={String(makers)} icon={Users} />
+        <StatCard label="Bookings (30d)" value={String(bookings30.length)} icon={CalendarCheck} />
+        <StatCard label="Platform fee revenue" value={formatCents(feeRevenue)} icon={DollarSign} hint="last 30 days" />
       </div>
       <Card className="mt-6">
         <CardHeader><CardTitle>Platform MRR + fee revenue</CardTitle></CardHeader>

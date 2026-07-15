@@ -76,7 +76,7 @@ export default function Grants() {
             <div key={p.id} className="flex flex-col rounded-lg border bg-card p-4">
               <div className="text-sm font-medium">{p.name}</div>
               <div className="mt-1 flex-1 text-xs text-muted-foreground">{p.description}</div>
-              <Button size="sm" variant="outline" className="mt-3" onClick={() => toast.success(`Intro requested to ${p.name} (demo)`)}>Request intro</Button>
+              <Button size="sm" variant="outline" className="mt-3" onClick={() => toast.info('Warm intros are coming soon — for now, reach out to the funder directly.')}>Request intro</Button>
             </div>
           ))}
         </div>

@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/misc';
 import { cn } from '@/lib/utils';
 import { getKitchenByOperator, importTenants, createAnnouncement, type ImportTenantRow } from '@/lib/store';
-import { PROVIDERS, getConnections, setConnection } from '@/lib/integrations';
+import { getConnections } from '@/lib/integrations';
 import { completeStep, markWelcomed } from '@/lib/onboarding';
 import { callAI } from '@/lib/ai';
 import { dataApi } from '@/lib/dataApi';
@@ -68,7 +68,6 @@ export default function Onboarding() {
   const [mapping, setMapping] = React.useState('');
   const [mapLoading, setMapLoading] = React.useState(false);
   const [imported, setImported] = React.useState(0);
-  const [, forceConn] = React.useReducer((x) => x + 1, 0);
   const connections = getConnections();
 
   const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1));
@@ -108,10 +107,8 @@ export default function Onboarding() {
     }
   }
 
-  function connect(id: string) {
-    setConnection(id, true);
-    forceConn();
-    toast.success(`${PROVIDERS.find((p) => p.id === id)?.name} connected (demo — keys wired later)`);
+  function connect(_id: string) {
+    toast.info('This connector is coming soon.');
   }
 
   function finish() {
@@ -272,7 +269,7 @@ Click below to claim your account (everything's already set up for you):
 
 Can't wait to see you grow,
 ${profile!.full_name}`}</pre>
-            <Button onClick={() => { completeStep(profile!.id, 'promote'); toast.success(`Invitations sent to ${imported || 'your'} members (demo)`); }}>
+            <Button onClick={() => toast.info('Bulk invitations are coming soon — for now, welcome members in one at a time from Inquiries.')}>
               <Users className="h-4 w-4" /> Send invitations to everyone you imported
             </Button>
           </CardContent></Card>

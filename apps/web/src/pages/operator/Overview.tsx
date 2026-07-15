@@ -16,7 +16,7 @@ import {
   getProfile,
 } from '@/lib/store';
 import { formatCents } from '@culina/shared';
-import { format, isToday, isThisMonth } from 'date-fns';
+import { format, isToday, isThisMonth, isSameMonth, subMonths } from 'date-fns';
 
 export default function Overview() {
   const { profile } = useAuth();
@@ -30,6 +30,13 @@ export default function Overview() {
   const monthRevenue = bookings
     .filter((b) => isThisMonth(new Date(b.start_time)) && b.status !== 'cancelled')
     .reduce((s, b) => s + b.subtotal_cents, 0);
+  const lastMonthRevenue = bookings
+    .filter((b) => isSameMonth(new Date(b.start_time), subMonths(new Date(), 1)) && b.status !== 'cancelled')
+    .reduce((s, b) => s + b.subtotal_cents, 0);
+  const revenueChange = lastMonthRevenue > 0 ? Math.round(((monthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100) : null;
+  const revenueTrend = revenueChange != null
+    ? { value: `${revenueChange >= 0 ? '+' : ''}${revenueChange}%`, positive: revenueChange >= 0 }
+    : undefined;
   const todayBookings = bookings.filter((b) => isToday(new Date(b.start_time)) && b.status !== 'cancelled');
   const expiringDocs = docs.filter((d) => d.status === 'expired' || (d.expiration_date && new Date(d.expiration_date) < new Date(Date.now() + 30 * 864e5)));
 
@@ -55,7 +62,7 @@ export default function Overview() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Active members" value={String(activeTenants)} icon={Users} hint={`${memberships.length} total`} />
-        <StatCard label="Revenue this month" value={formatCents(monthRevenue)} icon={DollarSign} trend={{ value: '+12%', positive: true }} hint="vs last month" />
+        <StatCard label="Revenue this month" value={formatCents(monthRevenue)} icon={DollarSign} {...(revenueTrend ? { trend: revenueTrend, hint: 'vs last month' } : {})} />
         <StatCard label="Bookings today" value={String(todayBookings.length)} icon={CalendarClock} hint="across all stations" />
         <StatCard label="Docs needing attention" value={String(expiringDocs.length)} icon={AlertTriangle} hint="expired or expiring" />
       </div>

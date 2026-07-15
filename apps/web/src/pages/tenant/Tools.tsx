@@ -144,19 +144,14 @@ function SalesChannels() {
 }
 
 function CoPacker() {
-  const [sent, setSent] = React.useState(false);
   return (
     <Card><CardContent className="p-6">
-      {sent ? (
-        <div className="rounded-lg bg-emerald-50 p-4 text-center text-sm text-emerald-700">Thanks! We’ll match you with co-packing resources and email you shortly. (Demo)</div>
-      ) : (
-        <form onSubmit={(e) => { e.preventDefault(); setSent(true); toast.success('Submitted (demo).'); }} className="space-y-3">
-          <div><Label>What do you make?</Label><Input required placeholder="e.g. fire-roasted salsa, 16oz jars" /></div>
-          <div><Label>Target monthly volume</Label><Input required placeholder="e.g. 2,000 units/month" /></div>
-          <div><Label>Scaling needs</Label><Textarea placeholder="Equipment, shelf-stability, packaging, certifications…" /></div>
-          <Button type="submit">Find co-packers</Button>
-        </form>
-      )}
+      <form onSubmit={(e) => { e.preventDefault(); toast.info('Directory submissions are coming soon.'); }} className="space-y-3">
+        <div><Label>What do you make?</Label><Input required placeholder="e.g. fire-roasted salsa, 16oz jars" /></div>
+        <div><Label>Target monthly volume</Label><Input required placeholder="e.g. 2,000 units/month" /></div>
+        <div><Label>Scaling needs</Label><Textarea placeholder="Equipment, shelf-stability, packaging, certifications…" /></div>
+        <Button type="submit">Find co-packers</Button>
+      </form>
     </CardContent></Card>
   );
 }

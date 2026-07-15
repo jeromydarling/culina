@@ -32,6 +32,8 @@ export default function PeerNetwork() {
         description="Benchmark against an anonymized national cohort and learn from other operators."
       />
 
+      <span className="mb-4 inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">Preview — sample benchmark data</span>
+
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Your utilization" value="78%" icon={TrendingUp} trend={{ value: '+14 vs cohort', positive: true }} />
         <StatCard label="Your retention" value="92%" icon={Users} trend={{ value: '+11 vs cohort', positive: true }} />

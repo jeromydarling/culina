@@ -29,8 +29,10 @@ export default function Revenue() {
     <div>
       <PageHeader title="Revenue" description="How Culina earns — diversified across six streams so no single one carries the platform." />
 
+      <span className="mb-4 inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">Preview — sample data</span>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Monthly revenue" value={formatCents(total)} icon={DollarSign} trend={{ value: '+17%', positive: true }} />
+        <StatCard label="Monthly revenue" value={formatCents(total)} icon={DollarSign} />
         <StatCard label="Annualized run-rate" value={formatCents(total * 12)} icon={DollarSign} />
         <StatCard label="Marketplace commission" value={formatCents(marketplaceCommission)} hint="this period" />
         <StatCard label="Referral partners" value={String(partners.length)} icon={Handshake} />

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PLATFORM_FEE_PERCENT } from '@culina/shared';
 import { connectStart } from '@/lib/stripeApi';
+import { isLive } from '@/lib/config';
 import { notifyError } from '@/lib/errors';
 
 export function StripeConnectPanel({
@@ -21,14 +22,20 @@ export function StripeConnectPanel({
   async function connect() {
     setLoading(true);
     try {
-      const res = await connectStart(window.location.href);
-      if (res.url) {
-        window.location.href = res.url; // hosted Stripe onboarding
-        return;
+      if (isLive()) {
+        // Real onboarding: the Worker creates the Express account and returns a hosted link.
+        const res = await connectStart(window.location.href);
+        if (res.url) {
+          window.location.href = res.url; // hosted Stripe onboarding
+          return;
+        }
+        // The Worker answered, but Stripe keys aren't set up server-side yet.
+        toast.info("Stripe isn't configured on the server yet.");
+      } else {
+        // Demo session → simulated success.
+        setOnboarded(true);
+        toast.success('Stripe Connect linked (demo — add Stripe keys to go live).');
       }
-      // No Stripe keys configured yet → simulated success for the demo.
-      setOnboarded(true);
-      toast.success('Stripe Connect linked (demo — add Stripe keys to go live).');
     } catch (e) {
       notifyError(e, { action: 'stripeConnect' });
     }

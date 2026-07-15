@@ -113,6 +113,25 @@ function EmailStudio({ tenantId }: { tenantId: string }) {
     toast.success('Subscriber added');
   }
 
+  function exportCsv() {
+    const escape = (v: string | null) => {
+      const s = v ?? '';
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const lines = [
+      'email,name,source,created_at',
+      ...subs.map((s) => [s.email, s.name, s.source, s.created_at].map(escape).join(',')),
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'subscribers.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Subscriber list downloaded');
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <Card className="lg:col-span-1">
@@ -129,7 +148,7 @@ function EmailStudio({ tenantId }: { tenantId: string }) {
       <Card className="lg:col-span-2">
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle>Your list ({subs.length})</CardTitle>
-          <Button size="sm" variant="outline" onClick={() => toast.success('CSV exported (demo)')}>Export CSV</Button>
+          <Button size="sm" variant="outline" onClick={exportCsv}>Export CSV</Button>
         </CardHeader>
         <CardContent className="p-0">
           {subs.map((s) => (

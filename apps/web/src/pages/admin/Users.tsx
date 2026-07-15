@@ -1,8 +1,6 @@
 import * as React from 'react';
-import { toast } from 'sonner';
 import { Search } from 'lucide-react';
 import { PageHeader } from '@/components/ui/misc';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import * as seed from '@/lib/mockData';
@@ -20,7 +18,7 @@ export default function Users() {
       <div className="overflow-hidden rounded-lg border bg-card shadow-card">
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
-            <tr><th className="p-3">Name</th><th className="p-3">Email</th><th className="p-3">Role</th><th className="p-3"></th></tr>
+            <tr><th className="p-3">Name</th><th className="p-3">Email</th><th className="p-3">Role</th></tr>
           </thead>
           <tbody>
             {users.map((u) => (
@@ -28,7 +26,6 @@ export default function Users() {
                 <td className="p-3 font-medium">{u.full_name}</td>
                 <td className="p-3 text-muted-foreground">{u.email}</td>
                 <td className="p-3"><Badge variant={u.role === 'admin' ? 'accent' : 'default'}>{u.role}</Badge></td>
-                <td className="p-3 text-right"><Button size="sm" variant="ghost" onClick={() => toast.success('Account suspended (demo)')}>Suspend</Button></td>
               </tr>
             ))}
           </tbody>

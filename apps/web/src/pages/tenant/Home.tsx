@@ -60,7 +60,7 @@ export default function Home() {
       <GettingStarted role="tenant" />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Revenue this month" value={formatCents(monthRevenue)} icon={DollarSign} trend={{ value: '+8%', positive: true }} />
+        <StatCard label="Revenue this month" value={formatCents(monthRevenue)} icon={DollarSign} />
         <StatCard label="Orders" value={String(orders.length)} icon={ShoppingCart} hint="all-time" />
         <StatCard label="Active products" value={String(products.filter((p) => p.is_active).length)} icon={Package} />
         <StatCard label="Next booking" value={nextBooking ? format(new Date(nextBooking.start_time), 'MMM d') : '—'} icon={CalendarClock} hint={nextBooking ? format(new Date(nextBooking.start_time), 'h:mma') : 'none scheduled'} />

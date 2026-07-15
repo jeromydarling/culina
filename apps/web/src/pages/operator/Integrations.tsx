@@ -1,23 +1,18 @@
-import * as React from 'react';
 import { toast } from 'sonner';
 import { Check, Plug } from 'lucide-react';
 import { PageHeader } from '@/components/ui/misc';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { PROVIDERS, getConnections, setConnection } from '@/lib/integrations';
+import { PROVIDERS, getConnections } from '@/lib/integrations';
 
 const catLabel: Record<string, string> = { storage: 'Document storage', accounting: 'Accounting', import: 'Data import' };
 
 export default function Integrations() {
-  const [, force] = React.useReducer((x) => x + 1, 0);
   const connections = getConnections();
 
-  function toggle(id: string, connected: boolean) {
-    setConnection(id, connected);
-    force();
-    const name = PROVIDERS.find((p) => p.id === id)?.name;
-    toast.success(connected ? `${name} connected (demo — OAuth keys wired later)` : `${name} disconnected`);
+  function toggle(_id: string, _connected: boolean) {
+    toast.info('Integrations are coming soon — OAuth connections ship after launch.');
   }
 
   const cats = ['storage', 'accounting', 'import'] as const;

@@ -41,14 +41,19 @@ export default function Analytics() {
   const totalRevenue = bookings.reduce((s, b) => s + b.subtotal_cents, 0);
   const avgBooking = bookings.length ? totalRevenue / bookings.length : 0;
 
+  const mrr = memberships.filter((m) => m.status === 'active' && m.membership_type === 'monthly').length * kitchen.monthly_price_cents;
+  const activeCount = memberships.filter((m) => m.status === 'active').length;
+  const suspendedCount = memberships.filter((m) => m.status === 'suspended').length;
+  const retention = activeCount + suspendedCount > 0 ? `${Math.round((activeCount / (activeCount + suspendedCount)) * 100)}%` : '—';
+
   return (
     <div>
       <PageHeader title="Analytics" description="The numbers that run your kitchen." />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="MRR" value={formatCents(690000)} icon={Repeat} trend={{ value: '+11%', positive: true }} />
-        <StatCard label="Total revenue (90d)" value={formatCents(totalRevenue)} icon={DollarSign} trend={{ value: '+18%', positive: true }} />
+        <StatCard label="MRR" value={formatCents(mrr)} icon={Repeat} hint="active monthly members" />
+        <StatCard label="Total revenue (90d)" value={formatCents(totalRevenue)} icon={DollarSign} />
         <StatCard label="Avg booking value" value={formatCents(avgBooking)} icon={TrendingUp} />
-        <StatCard label="Retention" value="92%" icon={Percent} hint="trailing 6 mo" />
+        <StatCard label="Retention" value={retention} icon={Percent} hint="active share" />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">

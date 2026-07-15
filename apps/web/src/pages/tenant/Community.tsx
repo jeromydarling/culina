@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   getMembershipForTenant,
   getTenantProfile,
+  getProfile,
   listCommunityPosts,
   createCommunityPost,
   listClassifieds,
@@ -129,7 +130,19 @@ export default function Community() {
                       <Button size="sm" variant="ghost" className="mt-3" onClick={() => { closeClassified(c.id); force(); toast.success('Listing closed'); }}>Close listing</Button>
                     )
                   ) : (
-                    <Button size="sm" variant="outline" className="mt-3" onClick={() => toast.success('Message sent to the maker (demo)')}>Contact maker</Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-3"
+                      onClick={() => {
+                        const email = c.author_tenant_id ? getProfile(c.author_tenant_id)?.email : null;
+                        if (email) {
+                          window.location.href = `mailto:${email}?subject=${encodeURIComponent(`About your listing “${c.title}” on Culina`)}`;
+                        } else {
+                          toast.info("This maker hasn't shared a contact email yet.");
+                        }
+                      }}
+                    >Contact maker</Button>
                   )}
                 </div>
               );

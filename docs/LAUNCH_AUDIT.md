@@ -10,10 +10,10 @@ concerns what a REAL user hits in a live session at https://culina.life._
 
 ## 🔴 Launch blockers
 
-- [ ] **B1 — R2 files are readable without auth.** `apps/worker/src/storage/index.ts` — `handleFile()` streams any `/api/files/<key>` object with no `authenticate()` and no ownership check, and sets `Cache-Control: public`. Compliance docs/IDs are only protected by unguessable keys. **Fix:** require auth + (owner ∨ kitchen-operator ∨ admin) on download; make product/storefront images the only public class; `private` cache for the rest.
-- [ ] **B2 — No rate limiting on login/signup.** `apps/worker/src/auth/index.ts` — unlimited password guessing; `checkAiQuota` is AI-only. **Fix:** per-IP + per-email attempt counter (D1 or KV) with backoff, on `login`, `signup`, `forgot`.
-- [ ] **B3 — CORS wide open.** `wrangler.jsonc` `ALLOWED_ORIGIN: "*"` + `Authorization` allowed header. **Fix:** set to `https://culina.life`.
-- [ ] **B4 — Sent invoices aren't payable online.** The billing model is DECIDED
+- [x] **B1 — R2 files are readable without auth.** `apps/worker/src/storage/index.ts` — `handleFile()` streams any `/api/files/<key>` object with no `authenticate()` and no ownership check, and sets `Cache-Control: public`. Compliance docs/IDs are only protected by unguessable keys. **Fix:** require auth + (owner ∨ kitchen-operator ∨ admin) on download; make product/storefront images the only public class; `private` cache for the rest.
+- [x] **B2 — No rate limiting on login/signup.** `apps/worker/src/auth/index.ts` — unlimited password guessing; `checkAiQuota` is AI-only. **Fix:** per-IP + per-email attempt counter (D1 or KV) with backoff, on `login`, `signup`, `forgot`.
+- [x] **B3 — CORS wide open.** `wrangler.jsonc` `ALLOWED_ORIGIN: "*"` + `Authorization` allowed header. **Fix:** set to `https://culina.life`.
+- [x] **B4 — Sent invoices aren't payable online.** The billing model is DECIDED
   and built: **invoice-first monthly billing** (commit `c526989` — bookings
   accrue during the month; the monthly cron drafts an invoice per member from
   prior-month bookings with the platform fee; commit `6df80b0` — operator sends
@@ -21,7 +21,7 @@ concerns what a REAL user hits in a live session at https://culina.life._
   no way to pay. **Fix:** create a Stripe Checkout session / payment link per
   sent invoice (destination charge to the operator's Connect account, 1.5% fee),
   mark `paid` via the existing webhook path.
-- [ ] **B5 — Monthly invoice omits the membership base fee.** `runMonthlyInvoicing`
+- [x] **B5 — Monthly invoice omits the membership base fee.** `runMonthlyInvoicing`
   (`apps/worker/src/cron/index.ts`) sums bookings only; monthly/annual plan fees
   (`memberships.membership_type`, included hours, overage rate) never appear as
   a line item. **Fix:** add the plan's base fee + overage-hours line items to the
@@ -33,28 +33,28 @@ concerns what a REAL user hits in a live session at https://culina.life._
 
 ## 🟠 High — fake actions & numbers visible to real users
 
-**Buttons that only toast (no persistence), reachable in live mode:**
+**Buttons that only toast (no persistence), reachable in live mode:** ✅ RESOLVED — every item below was wired for real (Tenants invite → Inquiries flow, Marketing CSV export, Community contact-maker mailto, Stripe Connect onboarding) or made honestly "coming soon"/removed. Fake stats: all computed from real data or labeled "Preview — sample data."
 
-- [ ] Operator Tenants → "Invite tenant" modal (`Tenants.tsx`) — should call the real invite path (exists in Leads convert)
-- [ ] Operator Compliance → "Email reminders" (`Compliance.tsx`)
-- [ ] Admin Users → "Suspend" (`Users.tsx`)
-- [ ] Admin Kitchens → "Verify" (`Kitchens.tsx`) — no "(demo)" label at all
-- [ ] Operator Onboarding → bulk "Send invitations" + provider "Connect" (`Onboarding.tsx`)
-- [ ] Operator Integrations → connect/disconnect (`Integrations.tsx`)
-- [ ] Admin Content → "Add resource" (`Content.tsx`)
-- [ ] Tenant Marketing → "Export CSV" (`Marketing.tsx`)
-- [ ] Tenant Community → "Contact maker" (`Community.tsx`)
-- [ ] Tenant Grants → "Request intro" (`Grants.tsx`)
-- [ ] Tenant Tools → co-packing form (`Tools.tsx`)
-- [ ] StripeConnectPanel → "Link Stripe" demo toast
+- [x] Operator Tenants → "Invite tenant" modal (`Tenants.tsx`) — should call the real invite path (exists in Leads convert)
+- [x] Operator Compliance → "Email reminders" (`Compliance.tsx`)
+- [x] Admin Users → "Suspend" (`Users.tsx`)
+- [x] Admin Kitchens → "Verify" (`Kitchens.tsx`) — no "(demo)" label at all
+- [x] Operator Onboarding → bulk "Send invitations" + provider "Connect" (`Onboarding.tsx`)
+- [x] Operator Integrations → connect/disconnect (`Integrations.tsx`)
+- [x] Admin Content → "Add resource" (`Content.tsx`)
+- [x] Tenant Marketing → "Export CSV" (`Marketing.tsx`)
+- [x] Tenant Community → "Contact maker" (`Community.tsx`)
+- [x] Tenant Grants → "Request intro" (`Grants.tsx`)
+- [x] Tenant Tools → co-packing form (`Tools.tsx`)
+- [x] StripeConnectPanel → "Link Stripe" demo toast
 
 **Hardcoded stats rendered as if real:**
 
-- [ ] Operator Overview `+12%` trend; Tenant Home `+8%` trend
-- [ ] Operator Analytics: MRR `$6,900`, `+11%`, `+18%`, Retention `92%`
-- [ ] Operator PeerNetwork: retention `92%`, `+11 vs cohort`
-- [ ] Admin Overview: `128` makers, `412` bookings, `$5,600` fee revenue
-- [ ] Admin Revenue: entire revenue breakdown is a hardcoded object
+- [x] Operator Overview `+12%` trend; Tenant Home `+8%` trend
+- [x] Operator Analytics: MRR `$6,900`, `+11%`, `+18%`, Retention `92%`
+- [x] Operator PeerNetwork: retention `92%`, `+11 vs cohort`
+- [x] Admin Overview: `128` makers, `412` bookings, `$5,600` fee revenue
+- [x] Admin Revenue: entire revenue breakdown is a hardcoded object
 
 **Fix pattern:** compute from real data where cheap (trends from last-month vs
 this-month), otherwise remove the number rather than fake it.
