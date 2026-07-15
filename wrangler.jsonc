@@ -71,6 +71,8 @@
     "EMAIL_FROM": "no-reply@culina.life",
     "EMAIL_REPLY_TO": "gardener@thecros.app",
     "APP_URL": "https://culina.life",
-    "ALLOWED_ORIGIN": "*"
+    // The SPA is served same-origin by this Worker, so cross-origin API access
+    // is unnecessary — lock CORS to the production origin.
+    "ALLOWED_ORIGIN": "https://culina.life"
   }
 }

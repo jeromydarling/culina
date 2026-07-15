@@ -16,12 +16,40 @@ export async function handleUpload(request: Request, env: Env): Promise<Response
   return json({ key, url: `/api/files/${encodeURIComponent(key)}` }, env);
 }
 
-function serve(object: R2ObjectBody, env: Env): Response {
+function serve(object: R2ObjectBody, env: Env, isPublic: boolean): Response {
   const headers = new Headers(corsHeaders(env));
   object.writeHttpMetadata(headers);
   headers.set('etag', object.httpEtag);
-  headers.set('Cache-Control', 'public, max-age=86400');
+  headers.set('Cache-Control', isPublic ? 'public, max-age=86400' : 'private, max-age=0');
   return new Response(object.body, { headers });
+}
+
+/** Keys under generated/ are AI marketing/product imagery — public by design. */
+const isPublicKey = (key: string) => key.startsWith('generated/');
+
+/**
+ * Access control for user uploads (keys are `<ownerId>/<uuid>-<name>` — e.g.
+ * compliance documents). Allowed: the owner, an admin, or the operator of a
+ * kitchen where the owner holds a membership (operators review these docs).
+ * Auth via the Authorization header, or `?t=<jwt>` for browser <a>/<img> loads.
+ */
+async function canReadPrivate(decoded: string, env: Env, request: Request): Promise<boolean> {
+  const ownerId = decoded.split('/')[0];
+  if (!ownerId) return false;
+  let profile = await authenticate(request, env);
+  if (!profile) {
+    const t = new URL(request.url).searchParams.get('t');
+    if (t) profile = await authenticate(new Request(request.url, { headers: { Authorization: `Bearer ${t}` } }), env);
+  }
+  if (!profile) return false;
+  if (profile.id === ownerId || profile.role === 'admin') return true;
+  if (profile.role === 'operator' && env.DB) {
+    const row = await env.DB.prepare(
+      'SELECT 1 AS ok FROM memberships m JOIN kitchens k ON k.id = m.kitchen_id WHERE m.tenant_id = ? AND k.operator_id = ? LIMIT 1',
+    ).bind(ownerId, profile.id).first<{ ok: number }>();
+    return !!row;
+  }
+  return false;
 }
 
 /**
@@ -32,6 +60,10 @@ function serve(object: R2ObjectBody, env: Env): Response {
 export async function handleFile(key: string, env: Env, request: Request): Promise<Response> {
   if (!env.STORAGE) return error('Storage not configured.', env, 503);
   const decoded = decodeURIComponent(key);
+  const isPublic = isPublicKey(decoded);
+  if (!isPublic && !(await canReadPrivate(decoded, env, request))) {
+    return error('You don’t have access to this file.', env, 403);
+  }
   const w = Number(new URL(request.url).searchParams.get('w') || '');
 
   if (w > 0 && env.IMAGES) {
@@ -47,10 +79,10 @@ export async function handleFile(key: string, env: Env, request: Request): Promi
         const r: Response = result.response();
         const headers = new Headers(corsHeaders(env));
         headers.set('Content-Type', 'image/webp');
-        headers.set('Cache-Control', 'public, max-age=86400');
+        headers.set('Cache-Control', isPublic ? 'public, max-age=86400' : 'private, max-age=0');
         return new Response(r.body, { headers });
       }
-      return serve(obj, env);
+      return serve(obj, env, isPublic);
     } catch {
       /* fall through to original below */
     }
@@ -58,5 +90,5 @@ export async function handleFile(key: string, env: Env, request: Request): Promi
 
   const object = await env.STORAGE.get(decoded);
   if (!object) return error('File not found', env, 404);
-  return serve(object, env);
+  return serve(object, env, isPublic);
 }

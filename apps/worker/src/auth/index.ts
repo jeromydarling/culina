@@ -2,6 +2,7 @@ import { type Env, json, error } from '../lib/http';
 import { signJwt, verifyJwt, hashPassword, verifyPassword, uuid, randomToken, sha256Hex } from '../lib/crypto';
 import { getAuthSecret } from '../lib/secret';
 import { sendEmail, templates } from '../email';
+import { underHourlyLimit, bumpHourlyLimit } from '../lib/ratelimit';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -75,10 +76,16 @@ export async function handleAuth(action: string, request: Request, env: Env): Pr
   }
 
   const body: any = await request.json().catch(() => ({}));
+  const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
 
   if (action === 'signup') {
     const { email, password, role, full_name, invite } = body;
     if (!email || !password) return error('Email and password required', env, 400);
+    // Abuse guard: cap account creation per IP per hour.
+    if (!(await underHourlyLimit(env, `signup:${ip}`, 10))) {
+      return error('Too many signups from this network — please try again in an hour.', env, 429);
+    }
+    await bumpHourlyLimit(env, `signup:${ip}`);
     const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
     if (existing) return error('An account with that email already exists', env, 409);
 
@@ -137,10 +144,17 @@ export async function handleAuth(action: string, request: Request, env: Env): Pr
 
   if (action === 'login') {
     const { email, password } = body;
+    // Brute-force guard: only FAILED attempts count, per email and per IP.
+    const emailKey = `login:${String(email ?? '').toLowerCase().slice(0, 120)}`;
+    const ipKey = `loginip:${ip}`;
+    if (!(await underHourlyLimit(env, emailKey, 10)) || !(await underHourlyLimit(env, ipKey, 30))) {
+      return error('Too many failed attempts — please wait an hour or reset your password.', env, 429);
+    }
     const user = await env.DB.prepare('SELECT id, password_hash, salt FROM users WHERE email = ?')
       .bind(email)
       .first<{ id: string; password_hash: string; salt: string }>();
     if (!user || !(await verifyPassword(password, user.password_hash, user.salt))) {
+      await Promise.all([bumpHourlyLimit(env, emailKey), bumpHourlyLimit(env, ipKey)]);
       return error('Invalid email or password', env, 401);
     }
     const profile = await loadProfile(env, user.id);
@@ -151,6 +165,9 @@ export async function handleAuth(action: string, request: Request, env: Env): Pr
   // Request a password reset. Always returns 200 (no account enumeration).
   if (action === 'forgot') {
     const { email } = body;
+    // Cap reset-email requests per IP per hour (silently, to avoid enumeration).
+    if (!(await underHourlyLimit(env, `forgot:${ip}`, 5))) return json({ ok: true }, env);
+    await bumpHourlyLimit(env, `forgot:${ip}`);
     if (email) {
       const user = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first<{ id: string }>();
       if (user) {
