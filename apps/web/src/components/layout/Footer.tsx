@@ -33,6 +33,7 @@ const cols = [
     links: [
       { to: '/about', label: 'Our mission' },
       { to: '/privacy', label: 'Privacy & data' },
+      { to: '/terms', label: 'Terms of service' },
       { to: '/auth/login', label: 'Log in' },
     ],
   },
@@ -64,7 +65,7 @@ export function Footer() {
         </div>
         <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 text-xs text-secondary/60 sm:flex-row">
           <span>© {new Date().getFullYear()} Culina. We grow by helping others grow first.</span>
-          <span>hello@culina.app</span>
+          <span>gardener@thecros.app</span>
         </div>
       </div>
     </footer>

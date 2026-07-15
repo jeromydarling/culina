@@ -1,6 +1,9 @@
 import * as React from 'react';
 import { useForceUpdate } from '@/lib/hooks';
 import { toast } from 'sonner';
+import { Mail } from 'lucide-react';
+import { dataApi } from '@/lib/dataApi';
+import { isLive } from '@/lib/config';
 import { useAuth } from '@/context/AuthContext';
 import { PageHeader } from '@/components/ui/misc';
 import { Button } from '@/components/ui/button';
@@ -38,6 +41,23 @@ export default function Compliance() {
 
   const find = (tenantId: string, type: DocType) => docs.find((d) => d.tenant_id === tenantId && d.doc_type === type);
 
+  const [reminding, setReminding] = React.useState(false);
+  async function sendReminders() {
+    if (!isLive()) {
+      toast.success('Reminders sent! (Demo — in a live account members with expired or expiring docs get a real email.)');
+      return;
+    }
+    setReminding(true);
+    try {
+      const r = await dataApi.remindCompliance();
+      toast.success(`Reminders sent to ${r.reminded} member${r.reminded === 1 ? '' : 's'} with expired or expiring documents.`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setReminding(false);
+    }
+  }
+
   function review(status: DocStatus) {
     if (!editing) return;
     updateComplianceDoc(editing.doc.id, { status, reviewed_at: new Date().toISOString() });
@@ -51,6 +71,11 @@ export default function Compliance() {
       <PageHeader
         title="Compliance"
         description="Every member × required document. Bookings are auto-blocked when a required doc is expired."
+        action={
+          <Button variant="outline" disabled={reminding} onClick={sendReminders}>
+            <Mail className="h-4 w-4" /> {reminding ? 'Sending…' : 'Email reminders'}
+          </Button>
+        }
       />
 
       <div className="overflow-x-auto rounded-lg border bg-card shadow-card">

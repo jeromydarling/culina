@@ -1,59 +1,130 @@
+import * as React from 'react';
 import { toast } from 'sonner';
-import { Check, Plug } from 'lucide-react';
-import { PageHeader } from '@/components/ui/misc';
+import { CalendarDays, Copy, Webhook, Plug } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { PageHeader, Spinner } from '@/components/ui/misc';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { PROVIDERS, getConnections } from '@/lib/integrations';
+import { Input, Label } from '@/components/ui/input';
+import { getKitchenByOperator, setKitchenWebhook } from '@/lib/store';
+import { dataApi } from '@/lib/dataApi';
+import { isLive } from '@/lib/config';
 
-const catLabel: Record<string, string> = { storage: 'Document storage', accounting: 'Accounting', import: 'Data import' };
+const SAMPLE_FEED_URL = 'https://culina.life/api/data/calendar-feed?k=demo-kitchen&t=demo-token';
+const webhookKey = (kitchenId: string) => `culina_webhook_${kitchenId}`;
 
 export default function Integrations() {
-  const connections = getConnections();
+  const { profile } = useAuth();
+  const kitchen = getKitchenByOperator(profile!.id);
 
-  function toggle(_id: string, _connected: boolean) {
-    toast.info('Integrations are coming soon — OAuth connections ship after launch.');
+  // ── Calendar feed (real: token-signed iCal URL from the Worker) ─────────
+  const [feedUrl, setFeedUrl] = React.useState('');
+  const [feedLoading, setFeedLoading] = React.useState(isLive());
+  React.useEffect(() => {
+    if (!isLive()) return;
+    let cancelled = false;
+    dataApi
+      .icalUrl()
+      .then((r) => { if (!cancelled) setFeedUrl(r.url); })
+      .catch((e) => { if (!cancelled) toast.error((e as Error).message); })
+      .finally(() => { if (!cancelled) setFeedLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  function copyFeed() {
+    navigator.clipboard?.writeText(feedUrl);
+    toast.success('Calendar URL copied — paste it into your calendar app.');
   }
 
-  const cats = ['storage', 'accounting', 'import'] as const;
+  // ── Outbound webhook ─────────────────────────────────────────────────────
+  const [webhookUrl, setWebhookUrl] = React.useState(() => {
+    try { return kitchen ? localStorage.getItem(webhookKey(kitchen.id)) ?? '' : ''; } catch { return ''; }
+  });
+  const [webhookSaved, setWebhookSaved] = React.useState(!!webhookUrl);
+
+  function saveWebhook(e: React.FormEvent) {
+    e.preventDefault();
+    if (!kitchen) return;
+    const url = webhookUrl.trim();
+    if (!/^https?:\/\//.test(url)) return toast.error('Enter a full URL starting with https://');
+    setKitchenWebhook(kitchen.id, url); // write-through persists in a live session
+    try { localStorage.setItem(webhookKey(kitchen.id), url); } catch { /* private mode */ }
+    setWebhookSaved(true);
+    toast.success(isLive() ? 'Webhook saved — we’ll start POSTing events.' : 'Webhook saved. (Demo — a live account persists this and receives real events.)');
+  }
 
   return (
     <div>
-      <PageHeader title="Integrations" description="Connect the tools where your data already lives. Storage options let you keep documents in your own cloud." />
+      <PageHeader title="Integrations" description="Connect Culina to the tools you already use." />
 
-      {cats.map((cat) => {
-        const items = PROVIDERS.filter((p) => p.category === cat);
-        if (!items.length) return null;
-        return (
-          <div key={cat} className="mb-6">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">{catLabel[cat]}</h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {items.map((p) => {
-                const connected = !!connections[p.id] || p.id === 'r2';
-                return (
-                  <Card key={p.id}><CardContent className="flex h-full flex-col p-5">
-                    <div className="flex items-start justify-between">
-                      <span className="text-3xl">{p.emoji}</span>
-                      {connected ? <Badge variant="success"><Check className="mr-1 h-3 w-3" /> Connected</Badge> : <Badge variant="muted">Not connected</Badge>}
-                    </div>
-                    <h3 className="mt-3 font-heading font-semibold">{p.name}</h3>
-                    <p className="mt-1 flex-1 text-sm text-muted-foreground">{p.description}</p>
-                    {p.id === 'r2' ? (
-                      <p className="mt-3 text-xs text-muted-foreground">Built in. Create the bucket with <code className="rounded bg-muted px-1">wrangler r2 bucket create culina-files</code>.</p>
-                    ) : connected ? (
-                      <Button variant="outline" size="sm" className="mt-3" onClick={() => toggle(p.id, false)}>Disconnect</Button>
-                    ) : (
-                      <Button size="sm" className="mt-3" onClick={() => toggle(p.id, true)}><Plug className="h-4 w-4" /> Connect</Button>
-                    )}
-                  </CardContent></Card>
-                );
-              })}
-            </div>
+      {/* Calendar feed */}
+      <Card className="mb-6"><CardContent className="p-5">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="h-5 w-5 text-primary" />
+          <h2 className="font-heading font-semibold">Calendar feed</h2>
+          <Badge variant="success">Live</Badge>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Subscribe to your kitchen&rsquo;s bookings from any calendar app. The link is read-only and unguessable.
+        </p>
+        {feedLoading ? (
+          <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground"><Spinner /> Fetching your feed URL…</div>
+        ) : (
+          <div className="mt-3 flex gap-2">
+            <Input readOnly value={isLive() ? feedUrl : SAMPLE_FEED_URL} disabled={!isLive()} className="font-mono text-xs" />
+            <Button variant="outline" onClick={copyFeed} disabled={!isLive() || !feedUrl}><Copy className="h-4 w-4" /> Copy</Button>
           </div>
-        );
-      })}
+        )}
+        <p className="mt-2 text-xs text-muted-foreground">
+          Paste into Google/Apple/Outlook calendar subscriptions — updates automatically.
+          {!isLive() && ' (Sample shown — create a live account to get your kitchen’s real URL.)'}
+        </p>
+      </CardContent></Card>
 
-      <p className="mt-2 text-xs text-muted-foreground">OAuth connections are stubbed in this build; Claude for Chrome will provision the real provider keys.</p>
+      {/* Webhook */}
+      <Card className="mb-6"><CardContent className="p-5">
+        <div className="flex items-center gap-2">
+          <Webhook className="h-5 w-5 text-primary" />
+          <h2 className="font-heading font-semibold">Webhook</h2>
+          {webhookSaved ? <Badge variant="success">Connected</Badge> : <Badge variant="muted">Not set</Badge>}
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Send booking and inquiry events to your own tools — Zapier, Make, Slack, or anything with an HTTPS endpoint.
+        </p>
+        <form onSubmit={saveWebhook} className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <div className="flex-1">
+            <Label className="sr-only">Webhook URL</Label>
+            <Input
+              type="url"
+              placeholder="https://hooks.example.com/culina"
+              value={webhookUrl}
+              onChange={(e) => { setWebhookUrl(e.target.value); setWebhookSaved(false); }}
+              className="font-mono text-xs"
+            />
+          </div>
+          <Button type="submit">Save</Button>
+        </form>
+        <p className="mt-2 text-xs text-muted-foreground">We&rsquo;ll POST booking.created and lead.created events as JSON.</p>
+      </CardContent></Card>
+
+      {/* Connected apps */}
+      <Card><CardContent className="p-5">
+        <div className="flex items-center gap-2">
+          <Plug className="h-5 w-5 text-primary" />
+          <h2 className="font-heading font-semibold">Connected apps</h2>
+          <Badge variant="muted">Coming soon</Badge>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Google Drive, Dropbox, and The Food Corridor sync are coming soon — they require OAuth app registration.
+          Until then, the CSV importer in onboarding brings your member data over in minutes.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {['📁 Google Drive', '🗂️ Dropbox', '🍴 The Food Corridor'].map((n) => (
+            <span key={n} className="rounded-full border px-3 py-1 text-sm text-muted-foreground">{n}</span>
+          ))}
+        </div>
+      </CardContent></Card>
     </div>
   );
 }

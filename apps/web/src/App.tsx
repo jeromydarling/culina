@@ -10,6 +10,7 @@ import FindAKitchen from '@/pages/public/FindAKitchen';
 import KitchenProfile from '@/pages/public/KitchenProfile';
 import Storefront from '@/pages/public/Storefront';
 import Privacy from '@/pages/public/Privacy';
+import Terms from '@/pages/public/Terms';
 import NotFound from '@/pages/public/NotFound';
 import Login from '@/pages/auth/Login';
 import Signup from '@/pages/auth/Signup';
@@ -91,6 +92,7 @@ export default function App() {
         <Route path="/kitchen/:slug" element={<KitchenProfile />} />
         <Route path="/shop/:slug" element={<Storefront />} />
       <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
 
         {/* Auth */}
         <Route path="/auth/login" element={<Login />} />

@@ -1,7 +1,8 @@
-import { type Env, json, error } from '../lib/http';
+import { type Env, json, error, corsHeaders } from '../lib/http';
 import { authenticate } from '../auth';
 import { uuid, randomToken, sha256Hex } from '../lib/crypto';
-import { sendEmail, templates } from '../email';
+import { getAuthSecret } from '../lib/secret';
+import { sendEmail, templates, emailLayout } from '../email';
 import { invoicePayUrl } from '../stripe';
 import { checkAiQuota } from '../lib/ratelimit';
 
@@ -10,6 +11,7 @@ const MARKETPLACE_COMMISSION_PCT = 5;
 
 const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 const appBase = (env: Env, request: Request) => (env.APP_URL || new URL(request.url).origin).replace(/\/$/, '');
+const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 
 /** Human-readable booking window, e.g. "Mon, Jun 9 · 9:00 AM – 1:00 PM". */
 function formatWindow(startIso: string, endIso: string): string {
@@ -22,7 +24,7 @@ function formatWindow(startIso: string, endIso: string): string {
 
 /** Per-table field metadata for converting between the app shape and SQLite. */
 const BOOL_FIELDS: Record<string, string[]> = {
-  kitchens: ['stripe_onboarded', 'is_listed'],
+  kitchens: ['stripe_onboarded', 'is_listed', 'is_verified'],
   kitchen_spaces: ['is_active'],
   kitchen_equipment: ['is_active'],
   tenant_profiles: ['stripe_onboarded'],
@@ -34,6 +36,7 @@ const BOOL_FIELDS: Record<string, string[]> = {
   grants: ['is_recurring', 'is_active'],
   learning_resources: ['is_free'],
   white_label_configs: ['is_active'],
+  integrations: ['connected'],
   crm_task: ['done'],
 };
 const JSON_FIELDS: Record<string, string[]> = {
@@ -45,6 +48,7 @@ const JSON_FIELDS: Record<string, string[]> = {
   orders: ['items', 'shipping_address'],
   grants: ['target_states', 'target_business_types'],
   learning_resources: ['tags'],
+  integrations: ['metadata'],
   crm_customer: ['tags'],
 };
 
@@ -55,6 +59,7 @@ const WRITABLE = new Set([
   'compliance_documents', 'leads', 'invoices', 'recipes', 'products', 'orders',
   'announcements', 'tenant_sites', 'notifications', 'access_credentials', 'mentor_requests',
   'email_subscribers', 'classifieds', 'community_posts', 'marketplace_transactions',
+  'learning_resources', 'white_label_configs', 'integrations', 'access_events',
   // Super-admin CRM (admin-only writes; enforced by canWrite's admin gate).
   'crm_customer', 'crm_activity', 'crm_task',
 ]);
@@ -115,12 +120,42 @@ async function canWrite(env: Env, profile: Profile, table: string, row: any): Pr
     case 'invoices':
     case 'announcements':
     case 'access_credentials':
+    case 'access_events':
     case 'marketplace_transactions':
       return operatesKitchen(env, row.kitchen_id, profile.id);
+    case 'integrations':
+      // integrations.owner_id holds the kitchen id (0001 schema).
+      return operatesKitchen(env, row.owner_id, profile.id);
     default:
-      return false; // white_label_configs etc. → admin only (handled above)
+      return false; // learning_resources, white_label_configs etc. → admin only (handled above)
   }
 }
+
+/**
+ * Fire the kitchen's outbound webhook (if one is connected), best-effort.
+ * The integrations row (0001 schema) keys the kitchen via owner_id and keeps
+ * the destination URL in the metadata JSON column. Never blocks a response.
+ */
+async function fireKitchenWebhook(env: Env, kitchenId: string, event: object): Promise<void> {
+  try {
+    const row = await env.DB!
+      .prepare("SELECT metadata FROM integrations WHERE owner_id = ? AND provider = 'webhook' AND connected = 1 LIMIT 1")
+      .bind(kitchenId)
+      .first<{ metadata: string | null }>();
+    if (!row?.metadata) return;
+    let url = '';
+    try { url = String(JSON.parse(row.metadata)?.url ?? ''); } catch { /* malformed config → skip */ }
+    if (!/^https?:\/\//.test(url)) return;
+    await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(event) }).catch(() => {});
+  } catch (e) {
+    console.error('[webhook] fire failed:', (e as Error).message);
+  }
+}
+
+/** ISO timestamp → iCalendar UTC basic format (YYYYMMDDTHHMMSSZ). */
+const icsDate = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+/** Escape iCalendar TEXT values (RFC 5545 §3.3.11). */
+const icsEscape = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
 
 /** Recompute money server-side so clients can't dictate fees/totals. */
 function recomputeMoney(table: string, row: any) {
@@ -144,6 +179,43 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     if (path === 'grants') return json({ grants: (await all(env, 'SELECT * FROM grants WHERE is_active = 1')).map((r) => toApp('grants', r)) }, env);
     if (path === 'learning') return json({ learning: (await all(env, 'SELECT * FROM learning_resources')).map((r) => toApp('learning_resources', r)) }, env);
     if (path === 'mentors') return json({ mentors: await all(env, 'SELECT * FROM mentors') }, env);
+    // Public iCal feed of a kitchen's bookings, guarded by an unguessable token
+    // derived from the auth secret (no auth header — calendar apps can't send one).
+    if (path === 'calendar-feed') {
+      const u = new URL(request.url);
+      const k = u.searchParams.get('k') ?? '';
+      const t = u.searchParams.get('t') ?? '';
+      if (!k || t !== (await sha256Hex(`ical:${k}:${await getAuthSecret(env)}`))) return error('Invalid calendar token', env, 403);
+      const from = new Date(Date.now() - 30 * 864e5).toISOString();
+      const to = new Date(Date.now() + 90 * 864e5).toISOString();
+      const rows = await all(env,
+        `SELECT b.id, b.start_time, b.end_time, s.name AS space_name, tp.business_name, p.full_name
+         FROM bookings b
+         LEFT JOIN kitchen_spaces s ON s.id = b.space_id
+         LEFT JOIN tenant_profiles tp ON tp.tenant_id = b.tenant_id
+         LEFT JOIN profiles p ON p.id = b.tenant_id
+         WHERE b.kitchen_id = ? AND b.status != 'cancelled' AND b.start_time >= ? AND b.start_time <= ?
+         ORDER BY b.start_time`, k, from, to);
+      const now = icsDate(new Date().toISOString());
+      const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Culina//Kitchen Calendar//EN', 'CALSCALE:GREGORIAN'];
+      for (const b of rows) {
+        const who = b.business_name || b.full_name || 'Booking';
+        const what = `${who} — ${b.space_name || 'Kitchen booking'}`;
+        lines.push(
+          'BEGIN:VEVENT',
+          `UID:${b.id}@culina`,
+          `DTSTAMP:${now}`,
+          `DTSTART:${icsDate(b.start_time)}`,
+          `DTEND:${icsDate(b.end_time)}`,
+          `SUMMARY:${icsEscape(what)}`,
+          'END:VEVENT',
+        );
+      }
+      lines.push('END:VCALENDAR');
+      return new Response(lines.join('\r\n') + '\r\n', {
+        headers: { 'Content-Type': 'text/calendar; charset=utf-8', ...corsHeaders(env) },
+      });
+    }
     if (path === 'kitchens') return json({ kitchens: (await all(env, 'SELECT * FROM kitchens WHERE is_listed = 1')).map((r) => toApp('kitchens', r)) }, env);
     // Public kitchen profile by slug (listed only) — powers /kitchen/:slug for
     // visitors who aren't logged in, including operator-created kitchens.
@@ -229,6 +301,11 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     } catch (e) {
       console.error('[lead] ack failed:', (e as Error).message);
     }
+
+    // Outbound webhook (best-effort, never blocks the response).
+    try {
+      await fireKitchenWebhook(env, kitchen.id, { type: 'lead.created', lead: { id: leadId, full_name: fullName, email } });
+    } catch { /* fire-and-forget */ }
     return json({ ok: true, id: leadId }, env);
   }
 
@@ -443,6 +520,14 @@ export async function handleData(path: string, request: Request, env: Env): Prom
       console.error('[booking] confirmation email failed:', (e as Error).message);
     }
 
+    // Outbound webhook (best-effort, never blocks the response).
+    try {
+      await fireKitchenWebhook(env, kitchenId, {
+        type: 'booking.created',
+        booking: { id, start_time: start.toISOString(), end_time: end.toISOString(), total_cents: subtotal + fee, tenant_id: tenantId },
+      });
+    } catch { /* fire-and-forget */ }
+
     return json({ booking: toApp('bookings', created) }, env);
   }
 
@@ -536,6 +621,170 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     const notes = membership.notes ? `${membership.notes}\n${logLine}` : logLine;
     await db.prepare('UPDATE memberships SET notes = ?, updated_at = ? WHERE id = ?').bind(notes, now, membership.id).run();
     return json({ ok: true, sent }, env);
+  }
+
+  // ── Suspend / reinstate an account (admin only) ────────────────────────
+  const suspendMatch = path.match(/^users\/([^/]+)\/suspend$/);
+  if (suspendMatch && request.method === 'POST') {
+    if (profile.role !== 'admin') return error('Forbidden', env, 403);
+    const body: any = await request.json().catch(() => ({}));
+    const suspended = !!body.suspended;
+    await db.prepare('UPDATE users SET suspended = ? WHERE id = ?').bind(suspended ? 1 : 0, suspendMatch[1]).run();
+    return json({ ok: true, suspended }, env);
+  }
+
+  // ── Bulk-invite imported members who don't have an account yet ────────
+  if (path === 'members/bulk-invite' && request.method === 'POST') {
+    if (!(profile.role === 'operator' || profile.role === 'admin')) return error('Forbidden', env, 403);
+    const body: any = await request.json().catch(() => ({}));
+    // Operators invite into their own kitchen; admins may name one explicitly.
+    const kitchen = profile.role === 'operator'
+      ? await db.prepare('SELECT id, name FROM kitchens WHERE operator_id = ? LIMIT 1').bind(profile.id).first<any>()
+      : body.kitchen_id
+        ? await db.prepare('SELECT id, name FROM kitchens WHERE id = ?').bind(String(body.kitchen_id)).first<any>()
+        : null;
+    if (!kitchen) return error('No kitchen found', env, 400);
+
+    // Members with a profile but no login yet (imported), who have an email.
+    const rows = await all(env,
+      `SELECT m.tenant_id, m.membership_type, p.email, p.full_name, tp.business_name
+       FROM memberships m
+       JOIN profiles p ON p.id = m.tenant_id
+       LEFT JOIN tenant_profiles tp ON tp.tenant_id = m.tenant_id
+       LEFT JOIN users u ON u.email = p.email
+       WHERE m.kitchen_id = ? AND u.id IS NULL`, kitchen.id);
+
+    const base = appBase(env, request);
+    const now = new Date().toISOString();
+    let invited = 0;
+    let skipped = 0;
+    for (const r of rows) {
+      if (invited >= 100 || !r.email) { skipped++; continue; }
+      // Already holding a live invitation → don't double-send.
+      const pending = await db
+        .prepare("SELECT id FROM invites WHERE kitchen_id = ? AND email = ? AND status = 'pending' AND expires_at >= ? LIMIT 1")
+        .bind(kitchen.id, r.email, now)
+        .first();
+      if (pending) { skipped++; continue; }
+      const token = randomToken();
+      await db.prepare(`INSERT INTO invites (id, kitchen_id, lead_id, email, full_name, business_name, membership_type, token_hash, status, expires_at, created_at) VALUES (?, ?, NULL, ?, ?, ?, ?, ?, 'pending', ?, ?)`)
+        .bind(uuid(), kitchen.id, r.email, r.full_name ?? null, r.business_name ?? null, r.membership_type ?? 'monthly', await sha256Hex(token), new Date(Date.now() + 14 * 864e5).toISOString(), now).run();
+      try {
+        await sendEmail(env, r.email, `You’re invited to join ${kitchen.name}`,
+          templates.inviteToJoin({ kitchen: kitchen.name, name: r.full_name ?? null, signupUrl: `${base}/auth/signup?invite=${token}` }));
+      } catch (e) {
+        console.error('[bulk-invite] email failed:', (e as Error).message);
+      }
+      invited++;
+    }
+    return json({ ok: true, invited, skipped }, env);
+  }
+
+  // ── On-demand compliance reminders for the caller's kitchen ───────────
+  if (path === 'compliance/remind' && request.method === 'POST') {
+    if (!(profile.role === 'operator' || profile.role === 'admin')) return error('Forbidden', env, 403);
+    const body: any = await request.json().catch(() => ({}));
+    const kitchenId = profile.role === 'operator'
+      ? (await db.prepare('SELECT id FROM kitchens WHERE operator_id = ? LIMIT 1').bind(profile.id).first<{ id: string }>())?.id
+      : body.kitchen_id ? String(body.kitchen_id) : undefined;
+    if (!kitchenId) return error('No kitchen found', env, 400);
+
+    const soon = new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
+    const rows = await all(env,
+      `SELECT d.tenant_id, d.doc_type, p.email, p.full_name
+       FROM compliance_documents d JOIN profiles p ON p.id = d.tenant_id
+       WHERE d.kitchen_id = ? AND (d.status = 'expired' OR (d.expiration_date IS NOT NULL AND d.expiration_date <= ?))`, kitchenId, soon);
+
+    // One reminder per member, even with several documents due.
+    const seen = new Set<string>();
+    const now = new Date().toISOString();
+    let reminded = 0;
+    for (const r of rows) {
+      if (seen.has(r.tenant_id)) continue;
+      seen.add(r.tenant_id);
+      await db
+        .prepare('INSERT INTO notifications (id, user_id, title, body, type, is_read, action_url, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)')
+        .bind(uuid(), r.tenant_id, 'Document expiring', `Your ${String(r.doc_type).replace(/_/g, ' ')} needs attention.`, 'document_expiring', '/tenant/documents', now)
+        .run();
+      if (r.email) {
+        // Same email shape as the daily runComplianceSweep.
+        await sendEmail(env, r.email, 'Action needed: a Culina compliance document is expiring',
+          `<p>Hi ${r.full_name ?? 'there'},</p><p>Your <strong>${String(r.doc_type).replace(/_/g, ' ')}</strong> is expired or expiring soon. Please update it in Culina to keep booking.</p>`);
+      }
+      reminded += 1;
+    }
+    return json({ ok: true, reminded }, env);
+  }
+
+  // ── Warm funding-partner introduction request (any authed user) ───────
+  if (path === 'grants/intro' && request.method === 'POST') {
+    const body: any = await request.json().catch(() => ({}));
+    const grantTitle = String(body.grant_title ?? '').trim().slice(0, 200);
+    const funder = String(body.funder ?? '').trim().slice(0, 200);
+    if (!grantTitle && !funder) return error('Tell us which grant or funder you’d like an introduction to.', env, 400);
+
+    const tp = await db.prepare('SELECT business_name, business_type FROM tenant_profiles WHERE tenant_id = ?').bind(profile.id).first<any>();
+    const inbox = env.EMAIL_REPLY_TO || 'gardener@thecros.app';
+    // Replies go straight to the requester so the intro can happen by email.
+    await sendEmail(env, inbox, `Funding intro request: ${funder || grantTitle}`,
+      emailLayout({
+        heading: 'A maker wants a funding introduction',
+        intro: `<strong>${esc(profile.full_name ?? profile.email)}</strong> (${esc(profile.email)})${tp?.business_name ? ` of <strong>${esc(tp.business_name)}</strong>` : ''}${tp?.business_type ? ` — ${esc(tp.business_type)}` : ''} asked for an introduction.<br/><br/>Grant: <strong>${esc(grantTitle || '—')}</strong><br/>Funder: <strong>${esc(funder || '—')}</strong>`,
+        outro: 'Reply to this email to reach them directly.',
+      }), undefined, profile.email);
+
+    // Warm acknowledgement to the requester (best-effort).
+    try {
+      await sendEmail(env, profile.email, 'We’re on it — your funding introduction',
+        emailLayout({
+          heading: 'We’re on it',
+          intro: `Hi ${esc((profile.full_name ?? 'there').split(' ')[0])}, thanks for raising your hand${funder ? ` about ${esc(funder)}` : ''}. We’ll make the introduction and you’ll hear back by email.`,
+          outro: 'Anything to add in the meantime? Just reply to this email.',
+        }));
+    } catch (e) {
+      console.error('[grants/intro] ack failed:', (e as Error).message);
+    }
+    return json({ ok: true }, env);
+  }
+
+  // ── Co-packer matchmaking submission (any authed user) ────────────────
+  if (path === 'copacker/submit' && request.method === 'POST') {
+    const body: any = await request.json().catch(() => ({}));
+    const company = String(body.company ?? '').trim().slice(0, 200);
+    const location = String(body.location ?? '').trim().slice(0, 200);
+    const capabilities = String(body.capabilities ?? '').trim().slice(0, 2000);
+    const notes = String(body.notes ?? '').trim().slice(0, 2000);
+    if (!company || !capabilities) return error('Company and capabilities are required.', env, 400);
+
+    const tp = await db.prepare('SELECT business_name, business_type FROM tenant_profiles WHERE tenant_id = ?').bind(profile.id).first<any>();
+    const inbox = env.EMAIL_REPLY_TO || 'gardener@thecros.app';
+    await sendEmail(env, inbox, `Co-packer matchmaking: ${company}`,
+      emailLayout({
+        heading: 'A maker is looking for a co-packer',
+        intro: `<strong>${esc(profile.full_name ?? profile.email)}</strong> (${esc(profile.email)})${tp?.business_name ? ` of <strong>${esc(tp.business_name)}</strong>` : ''}${tp?.business_type ? ` — ${esc(tp.business_type)}` : ''} submitted a match request.<br/><br/>Company: <strong>${esc(company)}</strong><br/>Location: <strong>${esc(location || '—')}</strong><br/>Capabilities needed: ${esc(capabilities)}<br/>Notes: ${esc(notes || '—')}`,
+        outro: 'Reply to this email to reach them directly.',
+      }), undefined, profile.email);
+
+    // Warm acknowledgement to the submitter (best-effort).
+    try {
+      await sendEmail(env, profile.email, 'We’re on it — your co-packer match',
+        emailLayout({
+          heading: 'We’re on it',
+          intro: `Hi ${esc((profile.full_name ?? 'there').split(' ')[0])}, thanks for the details about ${esc(company)}. We’ll look for a good co-packer match and you’ll hear back by email.`,
+          outro: 'Anything to add in the meantime? Just reply to this email.',
+        }));
+    } catch (e) {
+      console.error('[copacker] ack failed:', (e as Error).message);
+    }
+    return json({ ok: true }, env);
+  }
+
+  // ── The kitchen's subscribable calendar URL (operator) ────────────────
+  if (path === 'integrations/ical-url' && request.method === 'GET') {
+    const k = await db.prepare('SELECT id FROM kitchens WHERE operator_id = ? LIMIT 1').bind(profile.id).first<{ id: string }>();
+    if (!k) return error('No kitchen found for this operator', env, 404);
+    const t = await sha256Hex(`ical:${k.id}:${await getAuthSecret(env)}`);
+    return json({ url: `${appBase(env, request)}/api/data/calendar-feed?k=${encodeURIComponent(k.id)}&t=${t}` }, env);
   }
 
   // ── Convert a lead into a member: add now, or invite them to join ──────

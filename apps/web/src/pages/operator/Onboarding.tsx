@@ -111,6 +111,25 @@ export default function Onboarding() {
     toast.info('This connector is coming soon.');
   }
 
+  const [inviting, setInviting] = React.useState(false);
+  async function sendInvitations() {
+    if (!isLive()) {
+      toast.success('Invitations sent! (Demo — in a live account every imported member gets a real email invite.)');
+      completeStep(profile!.id, 'promote');
+      return;
+    }
+    setInviting(true);
+    try {
+      const r = await dataApi.bulkInvite();
+      toast.success(`Invitations sent to ${r.invited} member${r.invited === 1 ? '' : 's'}`);
+      completeStep(profile!.id, 'promote');
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setInviting(false);
+    }
+  }
+
   function finish() {
     markWelcomed(profile!.id);
     navigate('/operator');
@@ -269,8 +288,8 @@ Click below to claim your account (everything's already set up for you):
 
 Can't wait to see you grow,
 ${profile!.full_name}`}</pre>
-            <Button onClick={() => toast.info('Bulk invitations are coming soon — for now, welcome members in one at a time from Inquiries.')}>
-              <Users className="h-4 w-4" /> Send invitations to everyone you imported
+            <Button disabled={inviting} onClick={sendInvitations}>
+              {inviting ? <Spinner className="h-4 w-4 border-white/40 border-t-white" /> : <><Users className="h-4 w-4" /> Send invitations to everyone you imported</>}
             </Button>
           </CardContent></Card>
           <div className="flex justify-between">

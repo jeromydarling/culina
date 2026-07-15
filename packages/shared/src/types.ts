@@ -35,6 +35,8 @@ export interface Kitchen {
   stripe_onboarded: boolean;
   monthly_price_cents: number;
   is_listed: boolean;
+  /** Admin-granted verification badge for the kitchen registry. */
+  is_verified?: boolean;
   /** Geo coordinates for the discovery map (optional; nullable when ungeocoded). */
   latitude?: number | null;
   longitude?: number | null;

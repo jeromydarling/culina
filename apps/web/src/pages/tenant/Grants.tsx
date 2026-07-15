@@ -8,6 +8,8 @@ import { Modal } from '@/components/ui/modal';
 import { Input, Select } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { listGrants, getTenantProfile, listReferralPartners } from '@/lib/store';
+import { dataApi } from '@/lib/dataApi';
+import { isLive } from '@/lib/config';
 import { AiDisclaimer } from '@/components/AiDisclaimer';
 import { callAI } from '@/lib/ai';
 import type { Grant } from '@culina/shared';
@@ -63,6 +65,22 @@ export default function Grants() {
   }
 
   const partners = listReferralPartners();
+  const [introBusy, setIntroBusy] = React.useState<string | null>(null);
+  async function requestIntro(partnerId: string, funder: string) {
+    if (!isLive()) {
+      toast.success("We're on it — we'll make the introduction by email. (Demo — a live account emails the Culina team for real.)");
+      return;
+    }
+    setIntroBusy(partnerId);
+    try {
+      await dataApi.grantIntro({ grant_title: `Funding partner introduction — ${funder}`, funder });
+      toast.success("We're on it — we'll make the introduction by email.");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setIntroBusy(null);
+    }
+  }
 
   return (
     <div>
@@ -76,7 +94,7 @@ export default function Grants() {
             <div key={p.id} className="flex flex-col rounded-lg border bg-card p-4">
               <div className="text-sm font-medium">{p.name}</div>
               <div className="mt-1 flex-1 text-xs text-muted-foreground">{p.description}</div>
-              <Button size="sm" variant="outline" className="mt-3" onClick={() => toast.info('Warm intros are coming soon — for now, reach out to the funder directly.')}>Request intro</Button>
+              <Button size="sm" variant="outline" className="mt-3" disabled={introBusy === p.id} onClick={() => requestIntro(p.id, p.name)}>Request intro</Button>
             </div>
           ))}
         </div>

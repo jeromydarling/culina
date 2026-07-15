@@ -10,6 +10,8 @@ import { Input, Label, Textarea, Select } from '@/components/ui/input';
 import { getTenantProfile } from '@/lib/store';
 import { AiDisclaimer } from '@/components/AiDisclaimer';
 import { callAI } from '@/lib/ai';
+import { dataApi } from '@/lib/dataApi';
+import { isLive } from '@/lib/config';
 
 const tools = [
   { id: 'business-formation', icon: Building2, title: 'Business Formation Wizard', desc: 'LLC, EIN, and entity setup — step by step.' },
@@ -144,13 +146,50 @@ function SalesChannels() {
 }
 
 function CoPacker() {
+  const { profile } = useAuth();
+  const tp = getTenantProfile(profile!.id);
+  const [form, setForm] = React.useState({ company: tp?.business_name ?? '', location: '', capabilities: '', notes: '' });
+  const [submitting, setSubmitting] = React.useState(false);
+  const [done, setDone] = React.useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (isLive()) {
+      setSubmitting(true);
+      try {
+        await dataApi.copackerSubmit(form);
+      } catch (err) {
+        toast.error((err as Error).message);
+        setSubmitting(false);
+        return;
+      }
+      setSubmitting(false);
+    } else {
+      toast.success('Request received! (Demo — a live account emails the Culina team for real.)');
+    }
+    setDone(true);
+  }
+
+  if (done) {
+    return (
+      <Card><CardContent className="p-8 text-center">
+        <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-emerald-100 text-emerald-600"><Boxes className="h-6 w-6" /></div>
+        <h3 className="mt-3 font-heading text-xl font-semibold">We're on it</h3>
+        <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+          Thanks — we've got your details. We'll look for a good co-packer match and you'll hear back by email.
+        </p>
+      </CardContent></Card>
+    );
+  }
+
   return (
     <Card><CardContent className="p-6">
-      <form onSubmit={(e) => { e.preventDefault(); toast.info('Directory submissions are coming soon.'); }} className="space-y-3">
-        <div><Label>What do you make?</Label><Input required placeholder="e.g. fire-roasted salsa, 16oz jars" /></div>
-        <div><Label>Target monthly volume</Label><Input required placeholder="e.g. 2,000 units/month" /></div>
-        <div><Label>Scaling needs</Label><Textarea placeholder="Equipment, shelf-stability, packaging, certifications…" /></div>
-        <Button type="submit">Find co-packers</Button>
+      <form onSubmit={submit} className="space-y-3">
+        <div><Label>Company</Label><Input required value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} placeholder="Your business name" /></div>
+        <div><Label>Location</Label><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="City, state" /></div>
+        <div><Label>Capabilities needed</Label><Textarea required value={form.capabilities} onChange={(e) => setForm({ ...form, capabilities: e.target.value })} placeholder="e.g. hot-fill 16oz jars, 2,000 units/month, gluten-free line…" /></div>
+        <div><Label>Notes</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Timeline, certifications, packaging…" /></div>
+        <Button type="submit" disabled={submitting}>{submitting ? <Spinner className="h-4 w-4 border-white/40 border-t-white" /> : 'Find co-packers'}</Button>
       </form>
     </CardContent></Card>
   );

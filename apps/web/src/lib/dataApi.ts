@@ -71,6 +71,23 @@ export const dataApi = {
   // or sends an invitation to join (new person).
   convertLead: (id: string, membershipType: string) =>
     req<{ ok: boolean; mode: 'added' | 'invited'; lead: any }>(`leads/${id}/convert`, { method: 'POST', body: JSON.stringify({ membership_type: membershipType }) }),
+  // Admin: suspend or reinstate a user's account (blocks login while suspended).
+  suspendUser: (id: string, suspended: boolean) =>
+    req<{ ok: boolean; suspended: boolean }>(`users/${id}/suspend`, { method: 'POST', body: JSON.stringify({ suspended }) }),
+  // Operator/admin: invite every imported member who doesn't have an account yet.
+  bulkInvite: (kitchenId?: string) =>
+    req<{ ok: boolean; invited: number; skipped: number }>('members/bulk-invite', { method: 'POST', body: JSON.stringify(kitchenId ? { kitchen_id: kitchenId } : {}) }),
+  // Operator/admin: email + notify members whose compliance docs are expired/expiring.
+  remindCompliance: (kitchenId?: string) =>
+    req<{ ok: boolean; reminded: number }>('compliance/remind', { method: 'POST', body: JSON.stringify(kitchenId ? { kitchen_id: kitchenId } : {}) }),
+  // Any authed user: ask the Culina team for a warm funding-partner introduction.
+  grantIntro: (input: { grant_title: string; funder: string }) =>
+    req<{ ok: boolean }>('grants/intro', { method: 'POST', body: JSON.stringify(input) }),
+  // Any authed user: submit a co-packer matchmaking request.
+  copackerSubmit: (input: { company: string; location?: string; capabilities: string; notes?: string }) =>
+    req<{ ok: boolean }>('copacker/submit', { method: 'POST', body: JSON.stringify(input) }),
+  // Operator: the kitchen's subscribable iCal feed URL (Google/Apple/Outlook).
+  icalUrl: () => req<{ url: string }>('integrations/ical-url'),
   errors: () => req<{ errors: any[] }>('errors'),
   // Super-admin CRM: per-customer status/tags + the activity timeline.
   crm: () => req<{ customers: any[]; activities: any[]; tasks: any[] }>('crm'),

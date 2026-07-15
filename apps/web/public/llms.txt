@@ -13,6 +13,7 @@
 - [Find a Kitchen](https://culina.life/find-a-kitchen): The Kitchen Discovery Network — find a licensed shared commercial kitchen near you.
 - [About](https://culina.life/about): Our mission to help food businesses start, run, and grow.
 - [Privacy](https://culina.life/privacy): How we handle your data.
+- [Terms](https://culina.life/terms): The terms of service that govern accounts, bookings, and payments.
 
 ## For operators (shared-kitchen owners)
 

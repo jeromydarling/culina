@@ -28,7 +28,7 @@ export interface JwtPayload {
   exp: number;
 }
 
-export async function signJwt(payload: Omit<JwtPayload, 'exp'>, secret: string, ttlSeconds = 60 * 60 * 24 * 30): Promise<string> {
+export async function signJwt(payload: Omit<JwtPayload, 'exp'>, secret: string, ttlSeconds = 60 * 60 * 24 * 7): Promise<string> {
   const header = b64urlEncode(enc.encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
   const body = b64urlEncode(enc.encode(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + ttlSeconds })));
   const data = `${header}.${body}`;
@@ -47,24 +47,38 @@ export async function verifyJwt(token: string, secret: string): Promise<JwtPaylo
   return payload;
 }
 
-export async function hashPassword(password: string, saltHex?: string): Promise<{ hash: string; salt: string }> {
+// Current PBKDF2 work factor for NEW hashes (OWASP-recommended for SHA-256).
+// The stored format doesn't record iterations, so verification also tries the
+// legacy count — existing accounts keep logging in unchanged.
+const PBKDF2_ITERATIONS = 600_000;
+const LEGACY_PBKDF2_ITERATIONS = 100_000;
+
+export async function hashPassword(password: string, saltHex?: string, iterations = PBKDF2_ITERATIONS): Promise<{ hash: string; salt: string }> {
   const salt = saltHex ? b64urlDecode(saltHex) : crypto.getRandomValues(new Uint8Array(16));
   const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
   const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations: 100_000, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
     keyMaterial,
     256,
   );
   return { hash: toHex(bits), salt: b64urlEncode(salt) };
 }
 
-export async function verifyPassword(password: string, hash: string, salt: string): Promise<boolean> {
-  const { hash: computed } = await hashPassword(password, salt);
-  // constant-time-ish compare
-  if (computed.length !== hash.length) return false;
+/** Constant-time-ish hex digest compare. */
+function digestsEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
   let diff = 0;
-  for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ hash.charCodeAt(i);
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
+}
+
+export async function verifyPassword(password: string, hash: string, salt: string): Promise<boolean> {
+  // Try the current work factor first, then fall back to the legacy one so
+  // accounts hashed before the bump still verify.
+  const current = await hashPassword(password, salt, PBKDF2_ITERATIONS);
+  if (digestsEqual(current.hash, hash)) return true;
+  const legacy = await hashPassword(password, salt, LEGACY_PBKDF2_ITERATIONS);
+  return digestsEqual(legacy.hash, hash);
 }
 
 export function uuid(): string {

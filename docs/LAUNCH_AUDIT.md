@@ -33,7 +33,7 @@ concerns what a REAL user hits in a live session at https://culina.life._
 
 ## 🟠 High — fake actions & numbers visible to real users
 
-**Buttons that only toast (no persistence), reachable in live mode:** ✅ RESOLVED — every item below was wired for real (Tenants invite → Inquiries flow, Marketing CSV export, Community contact-maker mailto, Stripe Connect onboarding) or made honestly "coming soon"/removed. Fake stats: all computed from real data or labeled "Preview — sample data."
+**Buttons that only toast (no persistence), reachable in live mode:** ✅ RESOLVED — every item below was wired for real (Tenants invite → Inquiries flow, Marketing CSV export, Community contact-maker mailto, Stripe Connect onboarding) or made honestly "coming soon"/removed — and the coming-soon set has since been BUILT for real (bulk invitations, compliance reminders, admin suspend/verify/add-resource, grant intros, co-packer submissions, Integrations with a live iCal feed + webhooks; only third-party OAuth connectors await external app registrations). Fake stats: all computed from real data or labeled "Preview — sample data."
 
 - [x] Operator Tenants → "Invite tenant" modal (`Tenants.tsx`) — should call the real invite path (exists in Leads convert)
 - [x] Operator Compliance → "Email reminders" (`Compliance.tsx`)
@@ -63,14 +63,14 @@ this-month), otherwise remove the number rather than fake it.
 
 - [ ] **M1 — Purge endpoint in prod with known default token.** Guard confirmed (only `e2e+*` emails deletable), but set `ADMIN_PURGE_TOKEN` as a real secret anyway.
 - [ ] **M2 — Email verification off.** One var: `EMAIL_VERIFICATION="on"` in `wrangler.jsonc` when ready (E2E rig would need its own bypass or the flag left off in a staging env).
-- [ ] **M3 — JWT 30-day expiry, no revocation; PBKDF2 100k iterations** (OWASP suggests ~600k). Shorten TTL and/or bump iterations.
+- [x] **M3 — JWT 30-day expiry, no revocation; PBKDF2 100k iterations** (OWASP suggests ~600k). Shorten TTL and/or bump iterations.
 - [x] ~~M5 — `EMAIL_REPLY_TO: gardener@thecros.app`~~ — confirmed intentional; this is the right inbox.
-- [ ] **M6 — Footer says `hello@culina.app`** (wrong TLD) and links no Terms.
-- [ ] **Terms of Service page missing** (Privacy is real; ToS doesn't exist). Add `/terms` + footer link. Consider cookie note if analytics/replay are enabled.
+- [x] **M6 — Footer says `hello@culina.app`** (wrong TLD) and links no Terms.
+- [x] **Terms of Service page missing** (Privacy is real; ToS doesn't exist). Add `/terms` + footer link. Consider cookie note if analytics/replay are enabled.
 - [ ] **Error monitoring off:** no `SENTRY_DSN` (worker) / `VITE_SENTRY_DSN` (client) set. Code no-ops without them — set both.
 - [ ] **D1 backups:** rely on Cloudflare Time Travel (verify retention) or add a scheduled export. **R2 orphaning:** account deletion purges DB rows but not R2 objects.
-- [ ] **White-label writes silently dropped:** `white_label_configs` absent from the server `WRITABLE` list, so the admin page saves nothing in live.
-- [ ] **AccessControl event log** demo-only (`access_events` not writable).
+- [x] **White-label writes silently dropped:** `white_label_configs` absent from the server `WRITABLE` list, so the admin page saves nothing in live.
+- [x] **AccessControl event log** demo-only (`access_events` not writable).
 - [ ] **GSC verification** token still commented in `index.html`; submit `sitemap.xml` after verifying.
 
 ## ✅ Confirmed solid

@@ -51,6 +51,12 @@ export const SEO_ROUTES: Record<string, RouteSeo> = {
     description:
       'How Culina collects, uses, and protects your data across shared-kitchen operations, storefronts, and payments. Your information, handled with care.',
   },
+  // 25-char title / 155-char description — within the 60/160 limits.
+  '/terms': {
+    title: 'Terms of Service | Culina',
+    description:
+      'The terms that govern Culina: accounts and roles, bookings, invoice-first billing, the 1.5% platform fee and Stripe payments, storefronts, and AI features.',
+  },
 };
 
 /** Clamp helpers so overrides (dynamic pages) also stay within limits. */

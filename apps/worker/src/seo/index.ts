@@ -16,6 +16,7 @@ const HTML_ROUTES: RegExp[] = [
   /^\/features$/,
   /^\/find-a-kitchen$/,
   /^\/privacy$/,
+  /^\/terms$/,
   /^\/kitchen\/[^/]+$/,
   /^\/shop\/[^/]+$/,
 ];

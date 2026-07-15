@@ -19,6 +19,7 @@ import type {
   ReferralPartner,
   MarketplaceTransaction,
   WhiteLabelConfig,
+  LearningResource,
   Profile,
 } from '@culina/shared';
 import { MARKETPLACE_COMMISSION_PERCENT } from '@culina/shared';
@@ -527,6 +528,32 @@ export const deleteGrant = (id: string) => {
 
 // ─── Learning ─────────────────────────────────────────────────────────────
 export const listLearning = () => state.learningResources;
+export const upsertLearning = (resource: Partial<LearningResource> & { title: string }): LearningResource => {
+  if (resource.id) {
+    const existing = state.learningResources.find((r) => r.id === resource.id);
+    if (existing) {
+      Object.assign(existing, resource);
+      wt('learning_resources', existing);
+      return existing;
+    }
+  }
+  const created: LearningResource = {
+    id: genId('lr'),
+    description: null,
+    content_type: 'article',
+    category: 'business_formation',
+    content_url: null,
+    content_body: null,
+    duration_minutes: null,
+    is_free: true,
+    tags: [],
+    created_at: new Date().toISOString(),
+    ...resource,
+  } as LearningResource;
+  state.learningResources.push(created);
+  wt('learning_resources', created);
+  return created;
+};
 
 // ─── Announcements ────────────────────────────────────────────────────────
 export const listAnnouncements = (kitchenId: string) =>
@@ -689,6 +716,25 @@ export const upsertWhiteLabelConfig = (c: Partial<WhiteLabelConfig> & { org_name
   state.whiteLabelConfigs.push(created);
   wt('white_label_configs', created);
   return created;
+};
+
+// ─── Integrations (outbound webhook) ─────────────────────────────────────
+/**
+ * Save (or replace) the kitchen's outbound webhook. Deterministic id keyed to
+ * the kitchen so re-saving updates the same integrations row (0001 schema:
+ * owner_id holds the kitchen id; the URL lives in the metadata JSON column).
+ */
+export const setKitchenWebhook = (kitchenId: string, url: string) => {
+  const row = {
+    id: `intg-webhook-${kitchenId}`,
+    owner_id: kitchenId,
+    provider: 'webhook',
+    connected: true,
+    metadata: { url },
+    created_at: new Date().toISOString(),
+  };
+  wt('integrations', row);
+  return row;
 };
 
 /** Record a peer-to-peer marketplace sale and take Culina's commission. */

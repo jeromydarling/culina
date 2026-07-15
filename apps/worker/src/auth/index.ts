@@ -150,13 +150,16 @@ export async function handleAuth(action: string, request: Request, env: Env): Pr
     if (!(await underHourlyLimit(env, emailKey, 10)) || !(await underHourlyLimit(env, ipKey, 30))) {
       return error('Too many failed attempts — please wait an hour or reset your password.', env, 429);
     }
-    const user = await env.DB.prepare('SELECT id, password_hash, salt FROM users WHERE email = ?')
+    const user = await env.DB.prepare('SELECT id, password_hash, salt, suspended FROM users WHERE email = ?')
       .bind(email)
-      .first<{ id: string; password_hash: string; salt: string }>();
+      .first<{ id: string; password_hash: string; salt: string; suspended: number }>();
     if (!user || !(await verifyPassword(password, user.password_hash, user.salt))) {
       await Promise.all([bumpHourlyLimit(env, emailKey), bumpHourlyLimit(env, ipKey)]);
       return error('Invalid email or password', env, 401);
     }
+    // Suspension is checked only after the password verifies, so a wrong
+    // password never leaks account state.
+    if (user.suspended) return error('This account is suspended. Contact support.', env, 403);
     const profile = await loadProfile(env, user.id);
     const token = await signJwt({ sub: user.id, role: profile?.role ?? 'tenant' }, await getAuthSecret(env));
     return json({ token, profile }, env);

@@ -22,7 +22,7 @@
     // latter so it injects per-route SEO/OpenGraph for crawlers that don't run
     // JS). Everything else (JS/CSS/images, robots.txt, sitemap.xml, llms.txt)
     // is served directly — cheaper + faster. Requires wrangler v4.
-    "run_worker_first": ["/api/*", "/", "/about", "/features", "/find-a-kitchen", "/privacy", "/kitchen/*", "/shop/*"]
+    "run_worker_first": ["/api/*", "/", "/about", "/features", "/find-a-kitchen", "/privacy", "/terms", "/kitchen/*", "/shop/*"]
   },
 
   "ai": {
