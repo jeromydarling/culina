@@ -169,7 +169,7 @@ export const templates = {
       ctaUrl: o.calendarUrl,
       outro: 'Nothing to do here — just a heads-up so you know what’s ahead.',
     }),
-  invoiceNew: (o: { name: string | null; period?: string; number?: string; total: string; dueDate: string; viewUrl: string }) =>
+  invoiceNew: (o: { name: string | null; period?: string; number?: string; total: string; dueDate: string; viewUrl: string; cta?: string }) =>
     emailLayout({
       heading: o.period ? `Your ${escapeHtml(o.period)} invoice is ready` : 'Your invoice is ready',
       intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, here’s your latest invoice — no rush, just so you have it.${detailList([
@@ -178,7 +178,7 @@ export const templates = {
         ['Amount', o.total],
         ['Due', o.dueDate],
       ])}`,
-      ctaText: 'View invoice',
+      ctaText: o.cta ?? 'View invoice',
       ctaUrl: o.viewUrl,
       outro: 'Questions about anything on here? Just reply — we’re happy to help.',
     }),

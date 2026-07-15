@@ -1,6 +1,7 @@
 import { type Env, json, error } from '../lib/http';
 import { authenticate } from '../auth';
-import { uuid } from '../lib/crypto';
+import { uuid, sha256Hex } from '../lib/crypto';
+import { getAuthSecret } from '../lib/secret';
 import { sendEmail } from '../email';
 import { PLATFORM_FEE_PERCENT } from '@culina/shared';
 
@@ -33,6 +34,60 @@ const feeCents = (amount: number, env: Env) =>
   Math.round(amount * (Number(env.STRIPE_PLATFORM_FEE_PERCENT ?? PLATFORM_FEE_PERCENT) / 100));
 
 const origin = (request: Request) => new URL(request.url).origin;
+
+/* ── Payable invoices (invoice-first billing) ──────────────────────────────
+ * Emails carry a durable, token-signed link; clicking it creates a FRESH
+ * Checkout Session (sessions expire in 24h — links must not), as a destination
+ * charge to the kitchen's Connect account with the platform fee kept. The
+ * webhook below flips the invoice to paid. */
+
+/** Deterministic HMAC-ish token so pay links need no schema change. */
+const invoicePayToken = async (env: Env, invoiceId: string) =>
+  sha256Hex(`invoice-pay:${invoiceId}:${await getAuthSecret(env)}`);
+
+/** Build the durable pay URL embedded in invoice emails. */
+export async function invoicePayUrl(env: Env, invoiceId: string, base: string): Promise<string> {
+  return `${base}/api/stripe/invoice-pay?id=${encodeURIComponent(invoiceId)}&t=${await invoicePayToken(env, invoiceId)}`;
+}
+
+/** GET /api/stripe/invoice-pay?id=…&t=… → 302 to a Stripe-hosted checkout. */
+export async function handleInvoicePay(request: Request, env: Env): Promise<Response> {
+  const page = (msg: string) =>
+    new Response(
+      `<!doctype html><html><body style="font-family:Inter,system-ui,sans-serif;padding:48px;text-align:center;color:#1a1a1a"><p style="font-size:17px">${msg}</p><p><a href="/" style="color:#2D4A3E">Back to Culina</a></p></body></html>`,
+      { headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+    );
+  if (!env.DB) return page("Payments aren't available right now.");
+  const url = new URL(request.url);
+  const id = url.searchParams.get('id') ?? '';
+  const t = url.searchParams.get('t') ?? '';
+  if (!id || t !== (await invoicePayToken(env, id))) return page("This payment link isn't valid.");
+
+  const inv = await env.DB.prepare('SELECT * FROM invoices WHERE id = ?').bind(id).first<any>();
+  if (!inv) return page('Invoice not found.');
+  if (inv.status === 'paid') return page('This invoice is already paid — thank you!');
+  const k = await env.DB.prepare('SELECT name, stripe_account_id, stripe_onboarded FROM kitchens WHERE id = ?').bind(inv.kitchen_id).first<any>();
+  if (!env.STRIPE_SECRET_KEY || !k?.stripe_account_id || !k?.stripe_onboarded) {
+    return page(`${k?.name ?? 'This kitchen'} isn't set up for online payment yet — please settle this invoice with them directly.`);
+  }
+
+  const payer = await env.DB.prepare('SELECT email FROM profiles WHERE id = ?').bind(inv.tenant_id).first<any>();
+  const base = (env.APP_URL || url.origin).replace(/\/$/, '');
+  const session = await stripe(env, 'checkout/sessions', {
+    mode: 'payment',
+    success_url: `${base}/tenant/bookings?invoice_paid=1`,
+    cancel_url: `${base}/tenant/bookings`,
+    'line_items[0]': { quantity: 1, price_data: { currency: 'usd', unit_amount: inv.total_cents, product_data: { name: `Invoice ${inv.invoice_number} — ${k.name}` } } },
+    customer_email: payer?.email ?? undefined,
+    payment_intent_data: {
+      application_fee_amount: inv.platform_fee_cents ?? 0,
+      transfer_data: { destination: k.stripe_account_id },
+      on_behalf_of: k.stripe_account_id,
+    },
+    metadata: { invoice_id: inv.id, kitchen_id: inv.kitchen_id, tenant_id: inv.tenant_id },
+  });
+  return Response.redirect(session.url, 302);
+}
 
 export async function handleStripe(action: string, request: Request, env: Env): Promise<Response> {
   if (action === 'webhooks') return handleWebhook(request, env);
@@ -190,6 +245,25 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
         break;
       }
       case 'checkout.session.completed': {
+        // Invoice payment (invoice-first billing): flip to paid + notify both sides.
+        const invoiceId = obj.metadata?.invoice_id;
+        if (invoiceId) {
+          const now = new Date().toISOString();
+          await env.DB.prepare("UPDATE invoices SET status = 'paid', paid_at = ?, stripe_invoice_id = ? WHERE id = ? AND status != 'paid'")
+            .bind(now, obj.payment_intent ?? null, invoiceId).run();
+          const inv = await env.DB.prepare('SELECT kitchen_id, tenant_id, invoice_number, total_cents FROM invoices WHERE id = ?').bind(invoiceId).first<any>();
+          if (inv) {
+            const k = await env.DB.prepare('SELECT operator_id, name FROM kitchens WHERE id = ?').bind(inv.kitchen_id).first<any>();
+            const amt = `$${((inv.total_cents ?? 0) / 100).toFixed(2)}`;
+            if (k?.operator_id) {
+              await env.DB.prepare('INSERT INTO notifications (id, user_id, title, body, type, is_read, action_url, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)')
+                .bind(uuid(), k.operator_id, 'Invoice paid 🎉', `${inv.invoice_number} (${amt}) was just paid online.`, 'invoice_due', '/operator/invoices', now).run();
+            }
+            await env.DB.prepare('INSERT INTO notifications (id, user_id, title, body, type, is_read, action_url, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)')
+              .bind(uuid(), inv.tenant_id, 'Payment received', `Thanks — your payment of ${amt} for ${inv.invoice_number} went through.`, 'invoice_due', '/tenant/bookings', now).run();
+          }
+          break;
+        }
         const orderId = obj.metadata?.order_id;
         if (orderId) {
           await env.DB.prepare("UPDATE orders SET status = 'confirmed', customer_email = COALESCE(?, customer_email), stripe_payment_intent_id = ? WHERE id = ?")

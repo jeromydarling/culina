@@ -2,6 +2,7 @@ import { type Env, json, error } from '../lib/http';
 import { authenticate } from '../auth';
 import { uuid, randomToken, sha256Hex } from '../lib/crypto';
 import { sendEmail, templates } from '../email';
+import { invoicePayUrl } from '../stripe';
 import { checkAiQuota } from '../lib/ratelimit';
 
 const PLATFORM_FEE_PCT = 1.5;
@@ -596,13 +597,16 @@ export async function handleData(path: string, request: Request, env: Env): Prom
 
     const [tenant, kitchenRow] = await Promise.all([
       db.prepare('SELECT email, full_name FROM profiles WHERE id = ?').bind(inv.tenant_id).first<any>(),
-      db.prepare('SELECT name FROM kitchens WHERE id = ?').bind(inv.kitchen_id).first<any>(),
+      db.prepare('SELECT name, stripe_account_id, stripe_onboarded FROM kitchens WHERE id = ?').bind(inv.kitchen_id).first<any>(),
     ]);
     let emailed = false;
     if (tenant?.email) {
       const period = inv.period_start ? new Date(inv.period_start).toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : undefined;
+      // When the kitchen accepts online payment, the email CTA is a durable pay link.
+      const payable = !!env.STRIPE_SECRET_KEY && !!kitchenRow?.stripe_account_id && !!kitchenRow?.stripe_onboarded;
+      const ctaUrl = payable ? await invoicePayUrl(env, inv.id, appBase(env, request)) : `${appBase(env, request)}/tenant/bookings`;
       emailed = await sendEmail(env, tenant.email, `Invoice ${inv.invoice_number} from ${kitchenRow?.name ?? 'Culina'}`,
-        templates.invoiceNew({ name: tenant.full_name, period, number: inv.invoice_number, total: money(inv.total_cents), dueDate: inv.due_date ?? '—', viewUrl: `${appBase(env, request)}/tenant/bookings` }));
+        templates.invoiceNew({ name: tenant.full_name, period, number: inv.invoice_number, total: money(inv.total_cents), dueDate: inv.due_date ?? '—', viewUrl: ctaUrl, cta: payable ? 'Pay invoice' : undefined }));
     }
     if (inv.status === 'draft') await db.prepare("UPDATE invoices SET status = 'sent' WHERE id = ?").bind(inv.id).run();
     try {

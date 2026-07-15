@@ -3,7 +3,7 @@ import { type Env, corsHeaders, json, error } from './lib/http';
 import { handleAI } from './ai';
 import { handleImage } from './ai/image';
 import { handleTranslate } from './ai/translate';
-import { handleStripe } from './stripe';
+import { handleStripe, handleInvoicePay } from './stripe';
 import { handleAuth, authenticate } from './auth';
 import { handleData } from './data';
 import { handleTelemetry, logError } from './telemetry';
@@ -146,7 +146,10 @@ async function route(request: Request, env: Env): Promise<Response> {
       return handleAI(path.replace('/api/ai/', ''), request, env);
     }
 
-    // Stripe
+    // Stripe — invoice pay links arrive as GETs from email clients.
+    if (path === '/api/stripe/invoice-pay' && request.method === 'GET') {
+      return handleInvoicePay(request, env);
+    }
     const stripeMatch = path.match(/^\/api\/stripe\/(.+)$/);
     if (stripeMatch && request.method === 'POST') {
       return handleStripe(stripeMatch[1], request, env);
