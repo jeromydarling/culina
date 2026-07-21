@@ -570,6 +570,22 @@ export const createAnnouncement = (input: { kitchen_id: string; author_id: strin
   wt('announcements', created);
   return created;
 };
+/**
+ * Add an announcement to the local store WITHOUT persisting. Used after a live
+ * broadcast (dataApi.broadcastAnnouncement), which already inserted the row
+ * server-side — persisting again would create a duplicate.
+ */
+export const addAnnouncementLocal = (row: {
+  id: string; kitchen_id: string; author_id: string; title: string; body: string;
+  is_pinned?: boolean; audience?: 'all' | 'active_members' | 'specific'; created_at?: string;
+}) => {
+  state.announcements.unshift({
+    audience: 'all' as const,
+    is_pinned: false,
+    created_at: new Date().toISOString(),
+    ...row,
+  });
+};
 
 // ─── Tenant sites ─────────────────────────────────────────────────────────
 export const getTenantSite = (tenantId: string) =>

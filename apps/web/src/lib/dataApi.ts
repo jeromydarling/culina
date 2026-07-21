@@ -80,6 +80,10 @@ export const dataApi = {
   // Operator/admin: email + notify members whose compliance docs are expired/expiring.
   remindCompliance: (kitchenId?: string) =>
     req<{ ok: boolean; reminded: number }>('compliance/remind', { method: 'POST', body: JSON.stringify(kitchenId ? { kitchen_id: kitchenId } : {}) }),
+  // Operator/admin: post an announcement/alert AND fan it out to members
+  // (in-app notification + email). Returns delivery counts.
+  broadcastAnnouncement: (input: { title: string; body: string; audience?: 'all' | 'active_members'; alert?: boolean; is_pinned?: boolean; email?: boolean }) =>
+    req<{ ok: boolean; announcement_id: string; notified: number; emailed: number; skipped: number }>('announcements/broadcast', { method: 'POST', body: JSON.stringify(input) }),
   // Any authed user: ask the Culina team for a warm funding-partner introduction.
   grantIntro: (input: { grant_title: string; funder: string }) =>
     req<{ ok: boolean }>('grants/intro', { method: 'POST', body: JSON.stringify(input) }),

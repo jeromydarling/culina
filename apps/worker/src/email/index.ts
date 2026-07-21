@@ -297,6 +297,15 @@ export const templates = {
       ctaUrl: o.calendarUrl,
       outro: 'The slot is open on your calendar now, in case someone else wants it.',
     }),
+  // An operator broadcasts an announcement or urgent alert to their members.
+  kitchenAnnouncement: (o: { kitchen: string; name: string | null; title: string; body: string; alert: boolean; url: string }) =>
+    emailLayout({
+      heading: `${o.alert ? '⚠️ ' : ''}${escapeHtml(o.title)}`,
+      intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, ${escapeHtml(o.kitchen)} ${o.alert ? 'sent an important alert' : 'shared an update'}:<br/><br/>${escapeHtml(o.body).replace(/\n/g, '<br/>')}`,
+      ctaText: 'Open Culina',
+      ctaUrl: o.url,
+      outro: `You’re receiving this because you’re a member of ${escapeHtml(o.kitchen)}. Reply to this email to reach them directly.`,
+    }),
 };
 
 /** Render a compact key/value detail block for transactional emails. */

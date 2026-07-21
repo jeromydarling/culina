@@ -740,6 +740,71 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     return json({ ok: true, reminded }, env);
   }
 
+  // ── Broadcast an announcement / alert to a kitchen's members ───────────
+  // Persists the announcement (so it also shows on the bulletin board / tenant
+  // home) AND fans it out to each member as an in-app notification + email.
+  if (path === 'announcements/broadcast' && request.method === 'POST') {
+    if (!(profile.role === 'operator' || profile.role === 'admin')) return error('Forbidden', env, 403);
+    const body: any = await request.json().catch(() => ({}));
+    const kitchenId = profile.role === 'operator'
+      ? (await db.prepare('SELECT id FROM kitchens WHERE operator_id = ? LIMIT 1').bind(profile.id).first<{ id: string }>())?.id
+      : body.kitchen_id ? String(body.kitchen_id) : undefined;
+    if (!kitchenId) return error('No kitchen found', env, 400);
+    // Admins may target any kitchen; operators are restricted to their own.
+    if (profile.role !== 'admin' && !(await operatesKitchen(env, kitchenId, profile.id))) return error('Forbidden', env, 403);
+
+    const title = String(body.title ?? '').trim().slice(0, 200);
+    const message = String(body.body ?? body.message ?? '').trim().slice(0, 5000);
+    if (!title || !message) return error('Title and message are required.', env, 400);
+    const audience = body.audience === 'active_members' ? 'active_members' : 'all';
+    const isAlert = !!body.alert;
+    const withEmail = body.email !== false; // default: also email members
+    const pinned = !!body.is_pinned;
+
+    const kitchenRow = await db.prepare('SELECT name FROM kitchens WHERE id = ?').bind(kitchenId).first<{ name: string }>();
+    const kitchenName = kitchenRow?.name ?? 'your kitchen';
+    const now = new Date().toISOString();
+
+    // Persist the announcement row (bulletin board + tenant-home card).
+    const annId = uuid();
+    await db.prepare('INSERT INTO announcements (id, kitchen_id, author_id, title, body, is_pinned, audience, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(annId, kitchenId, profile.id, title, message, pinned ? 1 : 0, audience, now).run();
+
+    // Recipients: active-only, or everyone still with the kitchen (skip
+    // graduated/suspended). DISTINCT so multiple memberships don't double-send.
+    const statusFilter = audience === 'active_members' ? "AND m.status = 'active'" : "AND m.status IN ('active','pending')";
+    const all_ = await all(env,
+      `SELECT DISTINCT p.id AS tenant_id, p.email, p.full_name
+       FROM memberships m JOIN profiles p ON p.id = m.tenant_id
+       WHERE m.kitchen_id = ? ${statusFilter}`, kitchenId);
+
+    const MAX = 1000;
+    const recipients = all_.slice(0, MAX);
+    let skipped = Math.max(0, all_.length - MAX);
+    const notifType = isAlert ? 'alert' : 'announcement';
+    const notifTitle = isAlert ? `⚠️ ${title}` : title;
+    const preview = message.length > 140 ? message.slice(0, 139).trimEnd() + '…' : message;
+    let notified = 0;
+    let emailed = 0;
+    for (const m of recipients) {
+      try {
+        await db.prepare('INSERT INTO notifications (id, user_id, title, body, type, is_read, action_url, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)')
+          .bind(uuid(), m.tenant_id, notifTitle, preview, notifType, '/tenant', now).run();
+        notified++;
+        if (withEmail && m.email) {
+          const ok = await sendEmail(env, m.email, isAlert ? `Alert from ${kitchenName}: ${title}` : `${kitchenName}: ${title}`,
+            templates.kitchenAnnouncement({ kitchen: kitchenName, name: m.full_name, title, body: message, alert: isAlert, url: `${appBase(env, request)}/tenant` }),
+            undefined, profile.email);
+          if (ok) emailed++;
+        }
+      } catch (e) {
+        console.error('[announce] delivery failed:', (e as Error).message);
+        skipped++;
+      }
+    }
+    return json({ ok: true, announcement_id: annId, notified, emailed, skipped }, env);
+  }
+
   // ── Warm funding-partner introduction request (any authed user) ───────
   if (path === 'grants/intro' && request.method === 'POST') {
     const body: any = await request.json().catch(() => ({}));
