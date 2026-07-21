@@ -20,9 +20,10 @@
     "not_found_handling": "single-page-application",
     // API requests + indexable HTML document routes invoke the Worker (the
     // latter so it injects per-route SEO/OpenGraph for crawlers that don't run
-    // JS). Everything else (JS/CSS/images, robots.txt, sitemap.xml, llms.txt)
-    // is served directly — cheaper + faster. Requires wrangler v4.
-    "run_worker_first": ["/api/*", "/", "/about", "/features", "/find-a-kitchen", "/privacy", "/terms", "/kitchen/*", "/shop/*"]
+    // JS). /sitemap.xml is Worker-generated too (static routes + public
+    // kitchens/shops from D1). Everything else (JS/CSS/images, robots.txt,
+    // llms.txt) is served directly — cheaper + faster. Requires wrangler v4.
+    "run_worker_first": ["/api/*", "/", "/about", "/features", "/find-a-kitchen", "/privacy", "/terms", "/kitchen/*", "/shop/*", "/sitemap.xml"]
   },
 
   "ai": {
