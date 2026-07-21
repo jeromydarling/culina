@@ -11,7 +11,8 @@ import { handleAccountExport, handleAccountDelete, handleAdminPurgeUser } from '
 import { checkAiQuota } from './lib/ratelimit';
 import { runComplianceSweep, runMonthlyInvoicing } from './cron';
 import { handleUpload, handleFile } from './storage';
-import { isSeoHtmlRoute, handleSeoHtml } from './seo';
+import { isSeoHtmlRoute, handleSeoHtml, handleSitemap } from './seo';
+import { handleOgImage } from './seo/ogimage';
 
 /**
  * Culina API — Cloudflare Worker.
@@ -84,6 +85,14 @@ async function route(request: Request, env: Env): Promise<Response> {
     // For HTML document routes (run_worker_first in wrangler.jsonc), inject
     // per-route SEO so crawlers that don't run JS get page-specific previews.
     if (!path.startsWith('/api/')) {
+      // Dynamically-generated sitemap (static routes + public kitchens/shops).
+      if (request.method === 'GET' && path === '/sitemap.xml') {
+        try {
+          return await handleSitemap(env);
+        } catch {
+          if (env.ASSETS) return env.ASSETS.fetch(request);
+        }
+      }
       if (env.ASSETS) {
         if (request.method === 'GET' && isSeoHtmlRoute(path)) {
           // Never let SEO injection break page delivery — fall back to the raw asset.
@@ -98,6 +107,10 @@ async function route(request: Request, env: Env): Promise<Response> {
       return error('Not found', env, 404);
     }
 
+    // Dynamic Open Graph image (page-specific social previews for kitchen/shop).
+    if (path === '/api/og' && request.method === 'GET') {
+      return handleOgImage(request, env);
+    }
     // Telemetry sink (client error reports)
     if (path === '/api/telemetry/error' && request.method === 'POST') {
       return handleTelemetry(request, env);

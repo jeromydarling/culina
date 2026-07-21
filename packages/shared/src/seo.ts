@@ -14,7 +14,9 @@ export const SITE = {
   title: 'Culina — Where food businesses are born and grow',
   description:
     'The all-in-one platform for shared commercial kitchens and the food entrepreneurs inside them — booking, compliance, storefronts, and growth.',
-  ogImage: 'https://culina.life/og.svg',
+  // 1200×630 raster — social scrapers (Facebook, X, LinkedIn, Slack, iMessage)
+  // do NOT render SVG OG images, so this must stay a PNG/JPG.
+  ogImage: 'https://culina.life/og.png',
   twitter: '@culinahq',
   locale: 'en_US',
 } as const;
