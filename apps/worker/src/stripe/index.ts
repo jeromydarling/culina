@@ -2,7 +2,7 @@ import { type Env, json, error } from '../lib/http';
 import { authenticate } from '../auth';
 import { uuid, sha256Hex } from '../lib/crypto';
 import { getAuthSecret } from '../lib/secret';
-import { sendEmail } from '../email';
+import { sendEmail, templates } from '../email';
 import { PLATFORM_FEE_PERCENT } from '@culina/shared';
 
 const enc = new TextEncoder();
@@ -261,6 +261,17 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
             }
             await env.DB.prepare('INSERT INTO notifications (id, user_id, title, body, type, is_read, action_url, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)')
               .bind(uuid(), inv.tenant_id, 'Payment received', `Thanks — your payment of ${amt} for ${inv.invoice_number} went through.`, 'invoice_due', '/tenant/bookings', now).run();
+            // Emailed receipt to the payer (best-effort; no-op if email unconfigured).
+            try {
+              const payer = await env.DB.prepare('SELECT email, full_name FROM profiles WHERE id = ?').bind(inv.tenant_id).first<any>();
+              if (payer?.email) {
+                const base = (env.APP_URL || origin(request)).replace(/\/$/, '');
+                await sendEmail(env, payer.email, `Payment received — ${inv.invoice_number}`,
+                  templates.paymentReceipt({ name: payer.full_name, number: inv.invoice_number, total: amt, date: new Date(now).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), kitchen: k?.name ?? 'your kitchen', viewUrl: `${base}/tenant/invoices` }));
+              }
+            } catch (e) {
+              console.error('[stripe] invoice receipt email failed:', (e as Error).message);
+            }
           }
           break;
         }
@@ -271,7 +282,20 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
           const tenant = obj.metadata?.tenant_id;
           if (tenant) {
             await env.DB.prepare('INSERT INTO notifications (id, user_id, title, body, type, is_read, action_url, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)')
-              .bind(uuid(), tenant, 'New order!', 'You received a paid storefront order.', 'order', '/tenant/products', new Date().toISOString()).run();
+              .bind(uuid(), tenant, 'New order!', 'You received a paid storefront order.', 'order', '/tenant/orders', new Date().toISOString()).run();
+            // Email the maker so an order isn't missed if they're not in the app.
+            try {
+              const maker = await env.DB.prepare('SELECT email, full_name FROM profiles WHERE id = ?').bind(tenant).first<any>();
+              const ord = await env.DB.prepare('SELECT order_number FROM orders WHERE id = ?').bind(orderId).first<any>();
+              if (maker?.email) {
+                const base = (env.APP_URL || origin(request)).replace(/\/$/, '');
+                const total = obj.amount_total ? `$${(obj.amount_total / 100).toFixed(2)}` : '—';
+                await sendEmail(env, maker.email, 'You’ve got a new order 🎉',
+                  templates.orderMakerAlert({ name: maker.full_name, orderNumber: ord?.order_number ?? 'your order', total, buyer: obj.customer_details?.email ?? 'a customer', ordersUrl: `${base}/tenant/orders` }));
+              }
+            } catch (e) {
+              console.error('[stripe] maker order email failed:', (e as Error).message);
+            }
           }
           // Confirmation email to the customer (no-op without RESEND_API_KEY).
           const custEmail = obj.customer_details?.email;
@@ -297,12 +321,21 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
           const fully = amount > 0 && amountRefunded >= amount;
           const newStatus = fully ? 'refunded' : 'partially_refunded';
           await env.DB.prepare('UPDATE orders SET status = ? WHERE stripe_payment_intent_id = ?').bind(newStatus, piId).run();
-          const row = await env.DB.prepare('SELECT id, tenant_id, order_number FROM orders WHERE stripe_payment_intent_id = ? LIMIT 1').bind(piId).first<any>();
+          const row = await env.DB.prepare('SELECT id, tenant_id, order_number, customer_email FROM orders WHERE stripe_payment_intent_id = ? LIMIT 1').bind(piId).first<any>();
           if (row?.tenant_id) {
             await env.DB.prepare('INSERT INTO notifications (id, user_id, title, body, type, is_read, action_url, created_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)')
               .bind(uuid(), row.tenant_id, fully ? 'Order refunded' : 'Order partially refunded',
                 `Order ${row.order_number}: $${(amountRefunded / 100).toFixed(2)} refunded to the customer. The transfer to your account has been reversed.`,
                 'order', '/tenant/orders', new Date().toISOString()).run();
+          }
+          // Refund confirmation to the buyer (best-effort; skip the guest placeholder).
+          if (row?.customer_email && row.customer_email !== 'guest@culina.app') {
+            try {
+              await sendEmail(env, row.customer_email, fully ? 'Your refund is on its way' : 'A partial refund is on its way',
+                templates.orderRefunded({ orderNumber: row.order_number, amount: `$${(amountRefunded / 100).toFixed(2)}`, full: fully }));
+            } catch (e) {
+              console.error('[stripe] refund email failed:', (e as Error).message);
+            }
           }
         }
         break;

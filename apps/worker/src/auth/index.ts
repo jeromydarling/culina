@@ -197,6 +197,15 @@ export async function handleAuth(action: string, request: Request, env: Env): Pr
     const { hash, salt } = await hashPassword(password);
     await env.DB.prepare('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?').bind(hash, salt, userId).run();
     const profile = await loadProfile(env, userId);
+    // Security confirmation that the password changed (best-effort).
+    if (profile?.email) {
+      try {
+        await sendEmail(env, profile.email, 'Your Culina password was changed',
+          templates.passwordChanged({ name: profile.full_name ?? null, loginUrl: `${appUrl(request, env)}/` }));
+      } catch (e) {
+        console.error('[auth] password-changed email failed:', (e as Error).message);
+      }
+    }
     const jwt = await signJwt({ sub: userId, role: profile?.role ?? 'tenant' }, await getAuthSecret(env));
     return json({ token: jwt, profile }, env);
   }

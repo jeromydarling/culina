@@ -562,6 +562,15 @@ export async function handleData(path: string, request: Request, env: Env): Prom
           await sendEmail(env, renter.email, `Your booking is ${body.status}`,
             templates.bookingStatus({ name: renter.full_name, kitchen: kitchenRow?.name ?? 'the kitchen', space: sp?.name ?? 'your space', when: formatWindow(existing.start_time, existing.end_time), status: body.status, manageUrl: `${appBase(env, request)}/tenant/bookings` }));
         }
+        // When the renter cancels their own booking, give the operator a heads-up
+        // so they know the slot reopened (they aren't alerted otherwise).
+        if (body.status === 'cancelled' && profile.id === existing.tenant_id) {
+          const op = await db.prepare('SELECT p.email FROM kitchens k JOIN profiles p ON p.id = k.operator_id WHERE k.id = ?').bind(existing.kitchen_id).first<any>();
+          if (op?.email) {
+            await sendEmail(env, op.email, 'A booking was cancelled',
+              templates.bookingCancelledOperatorAlert({ renter: renter?.full_name ?? renter?.email ?? 'A maker', space: sp?.name ?? 'a space', when: formatWindow(existing.start_time, existing.end_time), calendarUrl: `${appBase(env, request)}/operator/calendar` }));
+          }
+        }
       }
     } catch (e) {
       console.error('[booking] status email failed:', (e as Error).message);
@@ -630,6 +639,21 @@ export async function handleData(path: string, request: Request, env: Env): Prom
     const body: any = await request.json().catch(() => ({}));
     const suspended = !!body.suspended;
     await db.prepare('UPDATE users SET suspended = ? WHERE id = ?').bind(suspended ? 1 : 0, suspendMatch[1]).run();
+    // Let the member know their access changed (best-effort).
+    try {
+      const target = await db.prepare('SELECT email, full_name FROM profiles WHERE id = ?').bind(suspendMatch[1]).first<any>();
+      if (target?.email) {
+        if (suspended) {
+          await sendEmail(env, target.email, 'Your Culina account has been paused',
+            templates.accountSuspended({ name: target.full_name }));
+        } else {
+          await sendEmail(env, target.email, 'Your Culina account is active again',
+            templates.accountReinstated({ name: target.full_name, loginUrl: `${appBase(env, request)}/auth/login` }));
+        }
+      }
+    } catch (e) {
+      console.error('[data] suspend email failed:', (e as Error).message);
+    }
     return json({ ok: true, suspended }, env);
   }
 

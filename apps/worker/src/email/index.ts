@@ -223,6 +223,80 @@ export const templates = {
       ctaText: 'Log in to get started',
       ctaUrl: o.loginUrl,
     }),
+  // A maker just sold something — tell them so they can fulfil it.
+  orderMakerAlert: (o: { name: string | null; orderNumber: string; total: string; buyer: string; ordersUrl: string }) =>
+    emailLayout({
+      heading: 'You’ve got a new order 🎉',
+      intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, someone just bought from your storefront. Here are the details so you can get started on it.${detailList([
+        ['Order', o.orderNumber],
+        ['Total', o.total],
+        ['Customer', o.buyer],
+      ])}`,
+      ctaText: 'View the order',
+      ctaUrl: o.ordersUrl,
+      outro: 'The payment has cleared and the funds are on their way to your connected account. Reach out to your customer about pickup or delivery when you’re ready.',
+    }),
+  // Emailed receipt after an invoice is paid online.
+  paymentReceipt: (o: { name: string | null; number: string; total: string; date: string; kitchen: string; viewUrl: string }) =>
+    emailLayout({
+      heading: 'Payment received — thank you',
+      intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, this confirms we received your payment to ${escapeHtml(o.kitchen)}. Here’s your receipt for your records.${detailList([
+        ['Invoice', o.number],
+        ['Amount paid', o.total],
+        ['Date', o.date],
+      ])}`,
+      ctaText: 'View invoice',
+      ctaUrl: o.viewUrl,
+      outro: 'Thanks for keeping your kitchen humming. Questions about this charge? Just reply — we’re happy to help.',
+    }),
+  // Security notice — the account password was just changed.
+  passwordChanged: (o: { name: string | null; loginUrl: string }) =>
+    emailLayout({
+      heading: 'Your password was changed',
+      intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, this is a confirmation that the password on your Culina account was just changed. If this was you, you’re all set — no action needed.`,
+      ctaText: 'Go to Culina',
+      ctaUrl: o.loginUrl,
+      outro: 'If you did NOT make this change, reply to this email right away and reset your password — someone else may have access to your account.',
+    }),
+  // Account access was paused by an operator/admin.
+  accountSuspended: (o: { name: string | null }) =>
+    emailLayout({
+      heading: 'Your account has been paused',
+      intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, access to your Culina account has been temporarily paused, so you won’t be able to sign in for now. This is usually about a billing or membership detail that needs sorting out.`,
+      outro: 'If you think this is a mistake or you’d like to get things back on track, just reply to this email — a real person will help you sort it out.',
+    }),
+  // Account access restored.
+  accountReinstated: (o: { name: string | null; loginUrl: string }) =>
+    emailLayout({
+      heading: 'Your account is active again',
+      intro: `Hi ${o.name ? escapeHtml(o.name.split(' ')[0]) : 'there'}, good news — access to your Culina account has been restored. You can sign back in and pick up right where you left off.`,
+      ctaText: 'Sign in',
+      ctaUrl: o.loginUrl,
+      outro: 'Thanks for your patience. Welcome back.',
+    }),
+  // Refund confirmation to the buyer.
+  orderRefunded: (o: { orderNumber: string; amount: string; full: boolean }) =>
+    emailLayout({
+      heading: o.full ? 'Your refund is on its way' : 'A partial refund is on its way',
+      intro: `We’ve processed a refund for your order.${detailList([
+        ['Order', o.orderNumber],
+        ['Refunded', o.amount],
+      ])}It typically takes 5–10 business days to appear on your original payment method, depending on your bank.`,
+      outro: 'Questions about this refund? Just reply to this email and we’ll help.',
+    }),
+  // Heads-up to the operator when a renter cancels their own booking.
+  bookingCancelledOperatorAlert: (o: { renter: string; space: string; when: string; calendarUrl: string }) =>
+    emailLayout({
+      heading: 'A booking was cancelled',
+      intro: `Heads-up — a maker just cancelled an upcoming session, so that time is free again.${detailList([
+        ['Renter', o.renter],
+        ['Space', o.space],
+        ['When', o.when],
+      ])}`,
+      ctaText: 'Open calendar',
+      ctaUrl: o.calendarUrl,
+      outro: 'The slot is open on your calendar now, in case someone else wants it.',
+    }),
 };
 
 /** Render a compact key/value detail block for transactional emails. */
