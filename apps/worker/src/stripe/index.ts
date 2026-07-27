@@ -84,7 +84,7 @@ export async function handleInvoicePay(request: Request, env: Env): Promise<Resp
       transfer_data: { destination: k.stripe_account_id },
       on_behalf_of: k.stripe_account_id,
     },
-    metadata: { invoice_id: inv.id, kitchen_id: inv.kitchen_id, tenant_id: inv.tenant_id },
+    metadata: { invoice_id: inv.id, kitchen_id: inv.kitchen_id, tenant_id: inv.tenant_id, satellite_app: 'culina' },
   });
   return Response.redirect(session.url, 302);
 }
@@ -180,7 +180,7 @@ export async function handleStripe(action: string, request: Request, env: Env): 
         transfer_data: { destination: tp.stripe_account_id },
         on_behalf_of: tp.stripe_account_id,
       },
-      metadata: { order_id: orderId, tenant_id: tp.tenant_id, slug },
+      metadata: { order_id: orderId, tenant_id: tp.tenant_id, slug, satellite_app: 'culina' },
     });
 
     // Record a pending order; the webhook marks it paid.
