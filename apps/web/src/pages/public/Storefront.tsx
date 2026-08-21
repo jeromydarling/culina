@@ -109,7 +109,10 @@ export default function Storefront() {
         window.location.href = res.url; // hosted Stripe Checkout
         return;
       }
-      // No Stripe keys yet → simulated confirmation for the demo.
+      // Simulated confirmation ONLY on the server's explicit demo signal
+      // (DEMO_MODE deployment). Anything else without a checkout URL is a
+      // configuration problem and must surface as an error, not a sale.
+      if (!res.demo) throw new Error('billing_not_configured');
       setCheckout(false);
       setCartOpen(false);
       setCart({});

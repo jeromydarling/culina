@@ -93,8 +93,14 @@ export async function handleStripe(action: string, request: Request, env: Env): 
   if (action === 'webhooks') return handleWebhook(request, env);
 
   if (!env.STRIPE_SECRET_KEY) {
-    // No keys yet → tell the client to use its simulated fallback.
-    return json({ demo: true, note: 'STRIPE_SECRET_KEY not configured on the worker.' }, env);
+    // Simulated success requires an explicit demo signal. Only a deployment
+    // that deliberately opted in (DEMO_MODE="true") may tell the client to use
+    // its simulated fallback — otherwise a misconfigured live deploy would
+    // answer checkout with what reads as a successful sale.
+    if (env.DEMO_MODE === 'true') {
+      return json({ demo: true, note: 'DEMO_MODE deployment — STRIPE_SECRET_KEY not configured on the worker.' }, env);
+    }
+    return error('billing_not_configured', env, 503);
   }
 
   // ── Connect onboarding (operator or maker) ──────────────────────────────

@@ -10,6 +10,14 @@ export interface Env {
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
   /**
+   * Explicit demo opt-in. Set to "true" ONLY on a deliberate demo deployment.
+   * When STRIPE_SECRET_KEY is unset, checkout/connect simulate success (the
+   * client shows a clearly-labeled demo confirmation) only if this is "true";
+   * otherwise they answer 503 billing_not_configured, so a misconfigured
+   * production deploy can never read as a working store.
+   */
+  DEMO_MODE?: string;
+  /**
    * Signing secret for the Stripe Connect webhook endpoint (events from
    * connected accounts). Same URL as the platform webhook, different secret.
    * When set, signature verification tries STRIPE_WEBHOOK_SECRET first then

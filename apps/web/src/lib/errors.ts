@@ -12,6 +12,7 @@ export function openSupport(subject = 'I need help with Culina', body = '') {
 export function humanError(error: unknown): string {
   const msg = (error as Error)?.message ?? String(error ?? '');
   const m = msg.toLowerCase();
+  if (m.includes('billing_not_configured')) return "Online payment isn't set up here yet, so this couldn't go through. No card was charged — please contact the kitchen or maker directly.";
   if (m.includes('conflict') || m.includes('changed in another')) return 'This was just changed in another session. We refreshed to the latest — please re-apply your change.';
   if (m.includes('already booked') || m.includes('overlapping')) return 'That space is already booked for an overlapping time. Pick another slot.';
   if (m.includes('compliance') || m.includes('expired')) return 'A required compliance document is expired, so this is blocked. Update your documents first.';

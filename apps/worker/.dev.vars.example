@@ -4,6 +4,10 @@ AUTH_SECRET=dev-insecure-secret-change-me
 ANTHROPIC_API_KEY=
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
+# Explicit demo opt-in. "true" lets checkout/connect simulate success when
+# STRIPE_SECRET_KEY is unset (demo deployments only). Unset/anything else →
+# unconfigured Stripe answers 503 billing_not_configured.
+DEMO_MODE=
 RESEND_API_KEY=
 RESEND_FROM_EMAIL=hello@culina.app
 # Server-side Sentry DSN — captures worker request + cron errors. Already set as
